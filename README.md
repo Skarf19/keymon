@@ -1,6 +1,6 @@
 # Keymon
 
-# Typing Analyzer
+## Typing Analyzer
 
 ## Tech Stack
 - C# (.NET 10)
