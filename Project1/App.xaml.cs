@@ -1,6 +1,7 @@
 ﻿using H.NotifyIcon;
 using Microsoft.Win32;
 using SharpHook;
+using SharpHook.Native; // 💡 KeyCode 인식을 위해 명시적으로 추가
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
@@ -46,6 +47,8 @@ namespace Project1
         private double _minuteTotalFt = 0;
         private int _minuteCountFt = 0;
         private DateTime _lastKeyReleaseTime = DateTime.MinValue;
+
+        // 💡 Dictionary 키 타입을 명확히 지정
         private Dictionary<SharpHook.Native.KeyCode, DateTime> _pressedKeys = new Dictionary<SharpHook.Native.KeyCode, DateTime>();
 
         // 5. 마우스 궤적 계산용
@@ -67,7 +70,7 @@ namespace Project1
             LoadUserData();     // 기존 학습 데이터 로드
             SetupNotifyIcon();  // 트레이 아이콘 설정
 
-            // [수정] 후킹 매니저 연결 및 시작
+            // 후킹 매니저 연결 및 시작
             _hookManager.KeyPressed += OnKeyPressed;
             _hookManager.KeyReleased += OnKeyReleased;
             _hookManager.MousePressed += OnMousePressed;
@@ -113,13 +116,19 @@ namespace Project1
         private void OnKeyPressed(object? sender, KeyboardHookEventArgs e)
         {
             DateTime now = DateTime.Now;
+
+            // 💡 핵심 수정: SharpHook 버전 충돌을 방지하기 위한 강제 형변환
+            var keyCode = (SharpHook.Native.KeyCode)e.Data.KeyCode;
+
             lock (_keyTimes)
             {
-                if (_pressedKeys.ContainsKey(e.Data.KeyCode)) return;
+                if (_pressedKeys.ContainsKey(keyCode)) return;
+
                 _keyCount++;
                 _engine.TotalAccumulatedKeys++;
 
-                if (e.Data.KeyCode == SharpHook.Native.KeyCode.VcBackspace)
+                // Backspace 감지 (명시적 타입 비교)
+                if (keyCode == SharpHook.Native.KeyCode.VcBackspace)
                 {
                     _backspaceCount++;
                     lock (_backspaceTimes) { _backspaceTimes.Enqueue(now); }
@@ -131,21 +140,25 @@ namespace Project1
                     double ft = (now - _lastKeyReleaseTime).TotalMilliseconds;
                     if (ft < 2000) { _minuteTotalFt += ft; _minuteCountFt++; }
                 }
-                _pressedKeys[e.Data.KeyCode] = now;
+                _pressedKeys[keyCode] = now;
             }
         }
 
         private void OnKeyReleased(object? sender, KeyboardHookEventArgs e)
         {
             DateTime now = DateTime.Now;
+
+            // 💡 핵심 수정: 강제 형변환
+            var keyCode = (SharpHook.Native.KeyCode)e.Data.KeyCode;
+
             lock (_keyTimes)
             {
                 _lastKeyReleaseTime = now;
-                if (_pressedKeys.TryGetValue(e.Data.KeyCode, out DateTime pressTime))
+                if (_pressedKeys.TryGetValue(keyCode, out DateTime pressTime))
                 {
                     double dt = (now - pressTime).TotalMilliseconds;
                     if (dt < 1000) { _minuteTotalDt += dt; _minuteCountDt++; }
-                    _pressedKeys.Remove(e.Data.KeyCode);
+                    _pressedKeys.Remove(keyCode);
                 }
             }
         }
@@ -289,7 +302,7 @@ namespace Project1
         public double GetCurrentFt() => _minuteCountFt > 0 ? _minuteTotalFt / _minuteCountFt : _engine.PersonalEmaFt;
         #endregion
 
-        private void SetupNotifyIcon() { /* 기존 아이콘 설정 코드 동일 */ }
+        private void SetupNotifyIcon() { /* 트레이 아이콘 설정 로직 */ }
         private void ShowDashboard() { if (_dashboardWindow == null) _dashboardWindow = new DashboardWindow(this); _dashboardWindow.Show(); }
         protected override void OnExit(ExitEventArgs e) { _hookManager.Stop(); SaveUserData(); base.OnExit(e); }
 
