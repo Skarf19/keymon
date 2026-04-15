@@ -1,13 +1,10 @@
-﻿using H.NotifyIcon;
-using Microsoft.Win32;
-using SharpHook;
+﻿using SharpHook;
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.IO;
 using System.Text;
 using System.Windows;
-using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using System.Runtime.InteropServices;
 using System.Linq;
@@ -16,15 +13,15 @@ namespace Project1
 {
     public partial class App : Application
     {
-        // 1. 핵심 모듈 (엔진과 후킹 매니저)
+        // 1. 핵심 전문 모듈들
         private AnalysisEngine _engine = new AnalysisEngine();
         private InputHookManager _hookManager = new InputHookManager();
+        private TrayIconManager _trayManager = new TrayIconManager();
 
         private DashboardWindow? _dashboardWindow;
-        private TaskbarIcon? _notifyIcon;
         private DispatcherTimer? _timer;
 
-        // 2. 수집 데이터 (실시간 60초 슬라이딩 윈도우)
+        // 2. 데이터 수집 및 관리를 위한 변수들
         private Queue<DateTime> _keyTimes = new Queue<DateTime>();
         private Queue<DateTime> _mouseTimes = new Queue<DateTime>();
         private Queue<DateTime> _backspaceTimes = new Queue<DateTime>();
@@ -32,7 +29,6 @@ namespace Project1
         private Queue<DateTime> _jerkTimes = new Queue<DateTime>();
         private Queue<DateTime> _mouseTurnTimes = new Queue<DateTime>();
 
-        // 3. 누적 및 히스토리 데이터
         private int _keyCount = 0;
         private int _mouseCount = 0;
         private int _backspaceCount = 0;
@@ -40,22 +36,23 @@ namespace Project1
         private List<int> _historyStates = new List<int>();
         private int _tickCounter = 0;
 
-        // 4. 간격 측정용 (DT, FT)
         private double _minuteTotalDt = 0;
         private int _minuteCountDt = 0;
         private double _minuteTotalFt = 0;
         private int _minuteCountFt = 0;
+
+        private IntPtr _lastWindowHandle = IntPtr.Zero;
         private DateTime _lastKeyReleaseTime = DateTime.MinValue;
         private Dictionary<SharpHook.Native.KeyCode, DateTime> _pressedKeys = new Dictionary<SharpHook.Native.KeyCode, DateTime>();
 
-        // 5. 마우스 궤적 계산용
         private int _lastMouseX = -1;
         private int _lastMouseY = -1;
         private double _lastMouseAngle = -1000;
         private DateTime _lastMouseTime = DateTime.MinValue;
-        private IntPtr _lastWindowHandle = IntPtr.Zero;
 
-        [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
 
@@ -64,17 +61,25 @@ namespace Project1
             base.OnStartup(e);
             Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
-            LoadUserData();     // 기존 학습 데이터 로드
-            SetupNotifyIcon();  // 트레이 아이콘 설정
+            // 1. 데이터 로드
+            LoadUserData();
 
-            // [수정] 후킹 매니저 연결 및 시작
+            // 2. 트레이 아이콘 설정 (액션 연결)
+            _trayManager.OnShowDashboard = ShowDashboard;
+            _trayManager.OnResetData = ResetAllData;
+            _trayManager.OnExit = () => Current.Shutdown();
+            _trayManager.Initialize();
+
+            // 3. 후킹 매니저 설정 및 시작
             _hookManager.KeyPressed += OnKeyPressed;
             _hookManager.KeyReleased += OnKeyReleased;
             _hookManager.MousePressed += OnMousePressed;
             _hookManager.MouseMoved += OnMouseMoved;
             _hookManager.Start();
 
-            _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            // 4. 메인 타이머 시작
+            _timer = new DispatcherTimer();
+            _timer.Interval = TimeSpan.FromSeconds(1);
             _timer.Tick += Timer_Tick;
             _timer.Start();
         }
@@ -82,15 +87,15 @@ namespace Project1
         private void Timer_Tick(object? sender, EventArgs e)
         {
             DateTime now = DateTime.Now;
-            CleanOldData(now); // 1분 지난 데이터 삭제
+            CleanOldData(now);
 
             _tickCounter++;
-            MonitorWindowSwitch(now); // 창 전환 감시
+            MonitorWindowSwitch(now);
 
-            // 실시간 상태 판단 (엔진)
+            // 실시간 상태 업데이트
             _engine.UpdateRealtimeStatus(_keyTimes.Count, _mouseTimes.Count, _contextSwitchTimes.Count, _engine.IsFirstAnalysisComplete);
 
-            // 60초 주기 심층 분석 (엔진)
+            // 60초 주기 심층 분석
             if (_tickCounter >= 60)
             {
                 double avgDt = _minuteCountDt > 0 ? _minuteTotalDt / _minuteCountDt : _engine.PersonalEmaDt;
@@ -98,10 +103,7 @@ namespace Project1
 
                 _engine.PerformDeepAnalysis(_keyTimes.Count, _mouseTimes.Count, _backspaceTimes.Count, _jerkTimes.Count, _contextSwitchTimes.Count, avgDt, avgFt);
 
-                _historyScores.Add(_engine.FocusScore);
-                _historyStates.Add(_engine.FocusState);
-                if (_historyScores.Count > 10) { _historyScores.RemoveAt(0); _historyStates.RemoveAt(0); }
-
+                UpdateHistory();
                 _minuteTotalDt = 0; _minuteCountDt = 0; _minuteTotalFt = 0; _minuteCountFt = 0;
                 _tickCounter = 0;
             }
@@ -109,13 +111,14 @@ namespace Project1
             UpdateTrayTooltip();
         }
 
-        #region 입력 이벤트 처리 (Event Handlers)
+        #region 입력 이벤트 핸들러 (CCTV 신호 처리)
         private void OnKeyPressed(object? sender, KeyboardHookEventArgs e)
         {
             DateTime now = DateTime.Now;
             lock (_keyTimes)
             {
                 if (_pressedKeys.ContainsKey(e.Data.KeyCode)) return;
+
                 _keyCount++;
                 _engine.TotalAccumulatedKeys++;
 
@@ -126,6 +129,7 @@ namespace Project1
                 }
 
                 _keyTimes.Enqueue(now);
+
                 if (_lastKeyReleaseTime != DateTime.MinValue)
                 {
                     double ft = (now - _lastKeyReleaseTime).TotalMilliseconds;
@@ -159,7 +163,12 @@ namespace Project1
         private void OnMouseMoved(object? sender, MouseHookEventArgs e)
         {
             DateTime now = DateTime.Now;
-            if (_lastMouseX == -1) { _lastMouseX = e.Data.X; _lastMouseY = e.Data.Y; _lastMouseTime = now; return; }
+
+            if (_lastMouseX == -1)
+            {
+                _lastMouseX = e.Data.X; _lastMouseY = e.Data.Y; _lastMouseTime = now;
+                return;
+            }
 
             int dx = e.Data.X - _lastMouseX;
             int dy = e.Data.Y - _lastMouseY;
@@ -175,11 +184,16 @@ namespace Project1
                     {
                         double angleDiff = Math.Abs(currentAngle - _lastMouseAngle);
                         if (angleDiff > 180) angleDiff = 360 - angleDiff;
+
                         if (angleDiff > 135)
                         {
                             _mouseTurnTimes.Enqueue(now);
                             while (_mouseTurnTimes.Count > 0 && (now - _mouseTurnTimes.Peek()).TotalSeconds > 2) _mouseTurnTimes.Dequeue();
-                            if (_mouseTurnTimes.Count >= 3) { lock (_jerkTimes) { _jerkTimes.Enqueue(now); } _mouseTurnTimes.Clear(); }
+                            if (_mouseTurnTimes.Count >= 3)
+                            {
+                                lock (_jerkTimes) { _jerkTimes.Enqueue(now); }
+                                _mouseTurnTimes.Clear();
+                            }
                         }
                     }
                     _lastMouseAngle = currentAngle;
@@ -189,7 +203,7 @@ namespace Project1
         }
         #endregion
 
-        #region 유틸리티 메서드 (Helpers)
+        #region 유틸리티 및 헬퍼 메서드
         private void CleanOldData(DateTime now)
         {
             lock (_keyTimes) { while (_keyTimes.Count > 0 && (now - _keyTimes.Peek()).TotalSeconds > 60) _keyTimes.Dequeue(); }
@@ -205,40 +219,73 @@ namespace Project1
             if (currentWindow != _lastWindowHandle && currentWindow != IntPtr.Zero)
             {
                 StringBuilder title = new StringBuilder(256);
-                if (GetWindowText(currentWindow, title, 256) > 0) { lock (_contextSwitchTimes) { _contextSwitchTimes.Enqueue(now); } }
+                if (GetWindowText(currentWindow, title, 256) > 0)
+                {
+                    lock (_contextSwitchTimes) { _contextSwitchTimes.Enqueue(now); }
+                }
                 _lastWindowHandle = currentWindow;
             }
         }
 
+        private void UpdateHistory()
+        {
+            _historyScores.Add(_engine.FocusScore);
+            _historyStates.Add(_engine.FocusState);
+            if (_historyScores.Count > 10) { _historyScores.RemoveAt(0); _historyStates.RemoveAt(0); }
+        }
+
         private void UpdateTrayTooltip()
         {
-            if (_notifyIcon == null) return;
-            if (!_engine.IsFirstAnalysisComplete) _notifyIcon.ToolTipText = $"⏳ 집중 패턴 분석 중... ({60 - _tickCounter}초)";
+            if (!_engine.IsFirstAnalysisComplete)
+                _trayManager.UpdateTooltip($"⏳ 패턴 분석 중... ({60 - _tickCounter}초)");
             else
             {
                 string[] stateNames = { "Idle ☕", "Distracted 😵‍💫", "Engaged 🙂", "Focused 🤓", "Deep Focus 🔥" };
-                _notifyIcon.ToolTipText = $"🎯 {stateNames[Math.Clamp(_engine.FocusState, 0, 4)]} ({_engine.FocusScore}%)\nKPM: {_keyTimes.Count} | 창 전환: {_contextSwitchTimes.Count}회";
+                string stateText = stateNames[Math.Clamp(_engine.FocusState, 0, 4)];
+                _trayManager.UpdateTooltip($"🎯 {stateText} ({_engine.FocusScore}%)\nKPM: {_keyTimes.Count} | 창 전환: {_contextSwitchTimes.Count}회");
             }
+        }
+
+        private void ShowDashboard()
+        {
+            if (_dashboardWindow == null) _dashboardWindow = new DashboardWindow(this);
+            _dashboardWindow.Show(); _dashboardWindow.Activate();
+        }
+
+        private void ResetAllData()
+        {
+            _keyCount = 0; _mouseCount = 0; _backspaceCount = 0; _tickCounter = 0;
+            _minuteTotalDt = 0; _minuteCountDt = 0; _minuteTotalFt = 0; _minuteCountFt = 0;
+            _historyScores.Clear(); _historyStates.Clear();
+            _pressedKeys.Clear(); _lastWindowHandle = IntPtr.Zero;
+
+            lock (_keyTimes) { _keyTimes.Clear(); _mouseTimes.Clear(); _backspaceTimes.Clear(); _contextSwitchTimes.Clear(); _jerkTimes.Clear(); _mouseTurnTimes.Clear(); }
+
+            // 엔진 내부 데이터도 초기화 (필요 시 AnalysisEngine에 Reset 메서드 추가 가능)
+            _engine = new AnalysisEngine();
         }
         #endregion
 
-        #region 데이터 로드 및 저장
+        #region 데이터 로드 및 저장 (Persistence)
         private void LoadUserData()
         {
             try
             {
                 string filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "userData.json");
-                if (!File.Exists(filePath)) return;
-                var data = JsonSerializer.Deserialize<UserData>(File.ReadAllText(filePath));
-                if (data == null) return;
-
-                _keyCount = data.KeyCount; _mouseCount = data.MouseCount; _backspaceCount = data.BackspaceCount;
-                _engine.PersonalEmaKpm = data.PersonalEmaKpm; _engine.PersonalEmaEr = data.PersonalEmaEr;
-                _engine.TotalAccumulatedKeys = data.TotalAccumulatedKeys;
-                _engine.PersonalVarKpm = data.PersonalVarKpm; _engine.PersonalVarEr = data.PersonalVarEr;
-                _engine.PersonalEmaDt = data.PersonalEmaDt; _engine.PersonalEmaFt = data.PersonalEmaFt;
-                _engine.PersonalVarDt = data.PersonalVarDt; _engine.PersonalVarFt = data.PersonalVarFt;
-                _engine.PersonalEmaMj = data.PersonalEmaMj; _engine.PersonalVarMj = data.PersonalVarMj;
+                if (File.Exists(filePath))
+                {
+                    var data = JsonSerializer.Deserialize<UserData>(File.ReadAllText(filePath));
+                    if (data != null)
+                    {
+                        _keyCount = data.KeyCount; _mouseCount = data.MouseCount; _backspaceCount = data.BackspaceCount;
+                        _engine.PersonalEmaKpm = data.PersonalEmaKpm; _engine.PersonalEmaEr = data.PersonalEmaEr;
+                        _engine.TotalAccumulatedKeys = data.TotalAccumulatedKeys;
+                        _engine.PersonalVarKpm = data.PersonalVarKpm; _engine.PersonalVarEr = data.PersonalVarEr;
+                        _engine.PersonalEmaDt = data.PersonalEmaDt; _engine.PersonalEmaFt = data.PersonalEmaFt;
+                        _engine.PersonalVarDt = data.PersonalVarDt; _engine.PersonalVarFt = data.PersonalVarFt;
+                        _engine.PersonalEmaMj = data.PersonalEmaMj; _engine.PersonalVarMj = data.PersonalVarMj;
+                    }
+                }
             }
             catch { }
         }
@@ -270,11 +317,12 @@ namespace Project1
         }
         #endregion
 
-        #region Dashboard 연동 Getters
+        #region Dashboard 연동용 Public Getters
         public bool GetIsFirstAnalysisComplete() => _engine.IsFirstAnalysisComplete;
         public int GetRemainingSeconds() => 60 - _tickCounter;
         public int GetFocus() => _engine.FocusScore;
         public int GetStress() => _engine.StressScore;
+        public int GetFatigue() => 0;
         public int GetCurrentKPM() => _keyTimes.Count;
         public int GetCurrentMPM() => _mouseTimes.Count;
         public int GetCurrentAPM() => _keyTimes.Count + _mouseTimes.Count;
@@ -289,9 +337,15 @@ namespace Project1
         public double GetCurrentFt() => _minuteCountFt > 0 ? _minuteTotalFt / _minuteCountFt : _engine.PersonalEmaFt;
         #endregion
 
-        private void SetupNotifyIcon() { /* 기존 아이콘 설정 코드 동일 */ }
-        private void ShowDashboard() { if (_dashboardWindow == null) _dashboardWindow = new DashboardWindow(this); _dashboardWindow.Show(); }
-        protected override void OnExit(ExitEventArgs e) { _hookManager.Stop(); SaveUserData(); base.OnExit(e); }
+        protected override void OnExit(ExitEventArgs e)
+        {
+            _hookManager.Stop();
+            _trayManager.Dispose();
+            SaveUserData();
+            _timer?.Stop();
+            base.OnExit(e);
+            Environment.Exit(0);
+        }
 
         public class UserData
         {
