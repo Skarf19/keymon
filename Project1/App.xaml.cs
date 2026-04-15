@@ -1,7 +1,7 @@
 ﻿using H.NotifyIcon;
 using Microsoft.Win32;
 using SharpHook;
-using SharpHook.Native; // 💡 KeyCode 충돌 해결을 위해 필수!
+using SharpHook.Data; // 💡 KeyCode의 진짜 주소
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
@@ -17,7 +17,7 @@ namespace Project1
 {
     public partial class App : Application
     {
-        // 1. 핵심 전문 모듈들 (TrayManager와 HookManager 통합)
+        // 1. 핵심 전문 모듈들
         private AnalysisEngine _engine = new AnalysisEngine();
         private InputHookManager _hookManager = new InputHookManager();
         private TrayIconManager _trayManager = new TrayIconManager();
@@ -48,8 +48,8 @@ namespace Project1
         private IntPtr _lastWindowHandle = IntPtr.Zero;
         private DateTime _lastKeyReleaseTime = DateTime.MinValue;
 
-        // 💡 Dictionary 키 타입을 SharpHook.Native.KeyCode로 명시
-        private Dictionary<SharpHook.Native.KeyCode, DateTime> _pressedKeys = new Dictionary<SharpHook.Native.KeyCode, DateTime>();
+        // 💡 SharpHook.Data.KeyCode 로 완벽 매칭
+        private Dictionary<SharpHook.Data.KeyCode, DateTime> _pressedKeys = new Dictionary<SharpHook.Data.KeyCode, DateTime>();
 
         private int _lastMouseX = -1;
         private int _lastMouseY = -1;
@@ -65,23 +65,19 @@ namespace Project1
             base.OnStartup(e);
             Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
-            // 1. 데이터 로드
             LoadUserData();
 
-            // 2. 트레이 아이콘 설정 (develop의 TrayManager 로직 적용)
             _trayManager.OnShowDashboard = ShowDashboard;
             _trayManager.OnResetData = ResetAllData;
             _trayManager.OnExit = () => Current.Shutdown();
             _trayManager.Initialize();
 
-            // 3. 후킹 매니저 설정 및 시작 (feature의 수정된 이벤트 연결)
             _hookManager.KeyPressed += OnKeyPressed;
             _hookManager.KeyReleased += OnKeyReleased;
             _hookManager.MousePressed += OnMousePressed;
             _hookManager.MouseMoved += OnMouseMoved;
             _hookManager.Start();
 
-            // 4. 메인 타이머 시작
             _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _timer.Tick += Timer_Tick;
             _timer.Start();
@@ -95,10 +91,8 @@ namespace Project1
             _tickCounter++;
             MonitorWindowSwitch(now);
 
-            // 실시간 상태 업데이트
             _engine.UpdateRealtimeStatus(_keyTimes.Count, _mouseTimes.Count, _contextSwitchTimes.Count, _engine.IsFirstAnalysisComplete);
 
-            // 60초 주기 심층 분석
             if (_tickCounter >= 60)
             {
                 double avgDt = _minuteCountDt > 0 ? _minuteTotalDt / _minuteCountDt : _engine.PersonalEmaDt;
@@ -114,13 +108,11 @@ namespace Project1
             UpdateTrayTooltip();
         }
 
-        #region 입력 이벤트 핸들러 (SharpHook KeyCode 에러 수정본 적용)
+        #region 입력 이벤트 핸들러
         private void OnKeyPressed(object? sender, KeyboardHookEventArgs e)
         {
             DateTime now = DateTime.Now;
-
-            // 💡 feature 브랜치에서 만든 핵심 수정: 강제 형변환
-            var keyCode = (SharpHook.Native.KeyCode)e.Data.KeyCode;
+            var keyCode = (SharpHook.Data.KeyCode)e.Data.KeyCode;
 
             lock (_keyTimes)
             {
@@ -129,7 +121,7 @@ namespace Project1
                 _keyCount++;
                 _engine.TotalAccumulatedKeys++;
 
-                if (keyCode == SharpHook.Native.KeyCode.VcBackspace)
+                if (keyCode == SharpHook.Data.KeyCode.VcBackspace)
                 {
                     _backspaceCount++;
                     lock (_backspaceTimes) { _backspaceTimes.Enqueue(now); }
@@ -149,7 +141,7 @@ namespace Project1
         private void OnKeyReleased(object? sender, KeyboardHookEventArgs e)
         {
             DateTime now = DateTime.Now;
-            var keyCode = (SharpHook.Native.KeyCode)e.Data.KeyCode;
+            var keyCode = (SharpHook.Data.KeyCode)e.Data.KeyCode;
 
             lock (_keyTimes)
             {
@@ -205,9 +197,9 @@ namespace Project1
             }
             _lastMouseX = e.Data.X; _lastMouseY = e.Data.Y; _lastMouseTime = now;
         }
-        #endregion
+        #endregion // 💡 여기 잘 닫혀 있습니다!
 
-        #region 유틸리티 및 헬퍼 메서드
+        #region 유틸리티 및 데이터 관리
         private void CleanOldData(DateTime now)
         {
             lock (_keyTimes) { while (_keyTimes.Count > 0 && (now - _keyTimes.Peek()).TotalSeconds > 60) _keyTimes.Dequeue(); }
@@ -265,7 +257,7 @@ namespace Project1
             lock (_keyTimes) { _keyTimes.Clear(); _mouseTimes.Clear(); _backspaceTimes.Clear(); _contextSwitchTimes.Clear(); _jerkTimes.Clear(); _mouseTurnTimes.Clear(); }
             _engine = new AnalysisEngine();
         }
-        #endregion
+        #endregion // 💡 빼먹었던 부분 추가했습니다!
 
         #region 데이터 로드 및 저장 (Persistence)
         private void LoadUserData()
@@ -316,7 +308,7 @@ namespace Project1
             }
             catch { }
         }
-        #endregion
+        #endregion // 💡 빼먹었던 부분 추가했습니다!
 
         #region Dashboard 연동용 Getters
         public bool GetIsFirstAnalysisComplete() => _engine.IsFirstAnalysisComplete;
@@ -335,7 +327,7 @@ namespace Project1
         public List<int> GetHistoryStates() => new List<int>(_historyStates);
         public double GetCurrentDt() => _minuteCountDt > 0 ? _minuteTotalDt / _minuteCountDt : _engine.PersonalEmaDt;
         public double GetCurrentFt() => _minuteCountFt > 0 ? _minuteTotalFt / _minuteCountFt : _engine.PersonalEmaFt;
-        #endregion
+        #endregion // 💡 빼먹었던 부분 추가했습니다!
 
         protected override void OnExit(ExitEventArgs e)
         {
