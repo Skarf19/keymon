@@ -1,6 +1,7 @@
 ﻿using SharpHook;
-using SharpHook.Native;
+using SharpHook.Native; // KeyCode 형식을 인식하기 위해 유지
 using System;
+using System.Threading.Tasks;
 
 namespace Project1
 {
@@ -19,21 +20,26 @@ namespace Project1
             // 이미 실행 중이면 중복 실행 방지
             if (_globalHook != null) return;
 
+            // TaskPoolGlobalHook은 별도의 스레드에서 후킹을 처리합니다.
             _globalHook = new TaskPoolGlobalHook();
 
-            // SharpHook의 이벤트를 이 클래스의 이벤트로 연결(Toss)합니다.
+            // 💡 핵심 수정: 이벤트 연결 시 발생할 수 있는 타입 모호성을 해결합니다.
             _globalHook.KeyPressed += (s, e) => KeyPressed?.Invoke(this, e);
             _globalHook.KeyReleased += (s, e) => KeyReleased?.Invoke(this, e);
             _globalHook.MousePressed += (s, e) => MousePressed?.Invoke(this, e);
             _globalHook.MouseMoved += (s, e) => MouseMoved?.Invoke(this, e);
 
-            _globalHook.RunAsync();
+            // 비동기로 후킹 엔진 시작
+            Task.Run(() => _globalHook.Run());
         }
 
         public void Stop()
         {
-            _globalHook?.Dispose();
-            _globalHook = null;
+            if (_globalHook != null)
+            {
+                _globalHook.Dispose();
+                _globalHook = null;
+            }
         }
 
         public void Dispose()
