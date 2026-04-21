@@ -1,0 +1,157 @@
+﻿<Window x:Class="Project1.DashboardWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="집중력 가이드 대시보드" Height="780" Width="650" 
+        WindowStartupLocation="CenterScreen" Background="#F8FAFC"
+        ResizeMode="NoResize">
+
+    <Window.Resources>
+        <SineEase x:Key="SineEase" EasingMode="EaseInOut"/>
+
+        <Storyboard x:Key="AnimIdle" RepeatBehavior="Forever">
+            <DoubleAnimation Storyboard.TargetName="CharScale" Storyboard.TargetProperty="ScaleX" From="1" To="1.05" Duration="0:0:2" AutoReverse="True" EasingFunction="{StaticResource SineEase}"/>
+            <DoubleAnimation Storyboard.TargetName="CharScale" Storyboard.TargetProperty="ScaleY" From="1" To="1.05" Duration="0:0:2" AutoReverse="True" EasingFunction="{StaticResource SineEase}"/>
+        </Storyboard>
+
+        <Storyboard x:Key="AnimDistracted" RepeatBehavior="Forever">
+            <DoubleAnimation Storyboard.TargetName="CharRotate" Storyboard.TargetProperty="Angle" From="-15" To="15" Duration="0:0:0.5" AutoReverse="True"/>
+            <DoubleAnimation Storyboard.TargetName="CharTranslate" Storyboard.TargetProperty="X" From="-5" To="5" Duration="0:0:0.3" AutoReverse="True"/>
+        </Storyboard>
+
+        <Storyboard x:Key="AnimEngaged" RepeatBehavior="Forever">
+            <DoubleAnimation Storyboard.TargetName="CharRotate" Storyboard.TargetProperty="Angle" From="-3" To="3" Duration="0:0:1" AutoReverse="True" EasingFunction="{StaticResource SineEase}"/>
+        </Storyboard>
+
+        <Storyboard x:Key="AnimFocused" RepeatBehavior="Forever">
+            <DoubleAnimation Storyboard.TargetName="CharTranslate" Storyboard.TargetProperty="Y" From="0" To="-5" Duration="0:0:0.8" AutoReverse="True" EasingFunction="{StaticResource SineEase}"/>
+        </Storyboard>
+
+        <Storyboard x:Key="AnimDeepFocus" RepeatBehavior="Forever">
+            <DoubleAnimation Storyboard.TargetName="CharTranslate" Storyboard.TargetProperty="Y" From="-2" To="2" Duration="0:0:0.1" AutoReverse="True"/>
+            <DoubleAnimation Storyboard.TargetName="CharScale" Storyboard.TargetProperty="ScaleX" From="1.1" To="1.15" Duration="0:0:0.2" AutoReverse="True"/>
+            <DoubleAnimation Storyboard.TargetName="CharScale" Storyboard.TargetProperty="ScaleY" From="1.1" To="1.15" Duration="0:0:0.2" AutoReverse="True"/>
+        </Storyboard>
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,15" HorizontalAlignment="Center">
+            <TextBlock x:Name="TxtStatus" Text="분석을 준비하고 있습니다..." FontSize="20" FontWeight="Bold" Foreground="#334155" HorizontalAlignment="Center" TextAlignment="Center"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,8,0,0">
+                <TextBlock Text="⏱️ 다음 상태 갱신:" FontSize="13" Foreground="#64748B" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                <Border CornerRadius="3" Background="#E2E8F0" ClipToBounds="True" Height="6" Width="150" VerticalAlignment="Center">
+                    <ProgressBar x:Name="BarUpdate" Value="60" Maximum="60" Foreground="#3B82F6" Background="Transparent" BorderThickness="0"/>
+                </Border>
+                <TextBlock x:Name="TxtUpdateSec" Text="60초" FontSize="13" FontWeight="Bold" Foreground="#3B82F6" Margin="8,0,0,0" Width="30" VerticalAlignment="Center"/>
+            </StackPanel>
+        </StackPanel>
+
+        <TabControl Grid.Row="1" Background="Transparent" BorderThickness="0">
+            <TabControl.Resources>
+                <Style TargetType="TabItem">
+                    <Setter Property="FontSize" Value="15"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                    <Setter Property="Padding" Value="20,10"/>
+                    <Setter Property="Margin" Value="0,0,5,15"/>
+                    <Setter Property="Foreground" Value="#64748B"/>
+                    <Style.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Foreground" Value="#3B82F6"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </TabControl.Resources>
+
+            <TabItem Header="⏱️ 실시간 모니터링">
+                <StackPanel>
+                    <Border Background="White" CornerRadius="20" Margin="0,0,0,15" Padding="20">
+                        <Border.Effect>
+                            <DropShadowEffect x:Name="CharGlow" Color="#E2E8F0" BlurRadius="30" ShadowDepth="0" Opacity="0.8"/>
+                        </Border.Effect>
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock x:Name="TxtCharacter" Text="⏳" FontSize="80" HorizontalAlignment="Center" RenderTransformOrigin="0.5,0.5" Margin="0,0,0,15">
+                                <TextBlock.RenderTransform>
+                                    <TransformGroup>
+                                        <ScaleTransform x:Name="CharScale" ScaleX="1" ScaleY="1"/>
+                                        <RotateTransform x:Name="CharRotate" Angle="0"/>
+                                        <TranslateTransform x:Name="CharTranslate" X="0" Y="0"/>
+                                    </TransformGroup>
+                                </TextBlock.RenderTransform>
+                            </TextBlock>
+                            <TextBlock x:Name="TxtStateTitle" Text="패턴 분석 준비" FontSize="32" FontWeight="Heavy" Foreground="#475569" HorizontalAlignment="Center"/>
+                            <TextBlock x:Name="TxtCharState" Text="데이터를 불러오고 있습니다..." FontSize="16" Foreground="#64748B" HorizontalAlignment="Center" Margin="0,10,0,0"/>
+
+                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="15" Margin="0,15,0,0" Width="500">
+                                <StackPanel>
+                                    <TextBlock Text="💡 데이터 기반 상태 진단" FontWeight="Bold" FontSize="13" Foreground="#475569" Margin="0,0,0,8"/>
+                                    <TextBlock x:Name="TxtReason" Text="데이터를 수집하여 판단 근거를 분석하고 있습니다..." FontSize="13" Foreground="#64748B" TextWrapping="Wrap" LineHeight="18"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Background="White" CornerRadius="10" Padding="15,25,15,25">
+                        <UniformGrid Columns="4" Rows="2">
+
+                            <StackPanel HorizontalAlignment="Center" Margin="0,0,0,25">
+                                <TextBlock Text="🔥 타수 (KPM)" Foreground="#94A3B8" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="TxtKpm" Text="0" FontSize="26" FontWeight="Bold" Foreground="#334155" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                            </StackPanel>
+                            <StackPanel HorizontalAlignment="Center" Margin="0,0,0,25">
+                                <TextBlock Text="🖱️ 클릭 (MPM)" Foreground="#94A3B8" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="TxtMpm" Text="0" FontSize="26" FontWeight="Bold" Foreground="#334155" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                            </StackPanel>
+                            <StackPanel HorizontalAlignment="Center" Margin="0,0,0,25">
+                                <TextBlock Text="⚡ 총 행동 (APM)" Foreground="#94A3B8" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="TxtApm" Text="0" FontSize="26" FontWeight="Heavy" Foreground="#8B5CF6" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                            </StackPanel>
+                            <StackPanel HorizontalAlignment="Center" Margin="0,0,0,25">
+                                <TextBlock Text="🎯 최종 집중도" Foreground="#94A3B8" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="TxtFocus" Text="0%" FontSize="26" FontWeight="Heavy" Foreground="#3B82F6" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                            </StackPanel>
+
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="🔙 오타율" Foreground="#94A3B8" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="TxtEr" Text="0 회" FontSize="22" FontWeight="Bold" Foreground="#64748B" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                            </StackPanel>
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="🔀 창 전환" Foreground="#94A3B8" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="TxtCsr" Text="0 번" FontSize="22" FontWeight="Bold" Foreground="#64748B" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                            </StackPanel>
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="💢 거친 꺾임" Foreground="#94A3B8" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="TxtJerk" Text="0 회" FontSize="22" FontWeight="Bold" Foreground="#EF4444" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                            </StackPanel>
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="🤯 뇌 과부하" Foreground="#94A3B8" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="TxtStress" Text="0 %" FontSize="22" FontWeight="Bold" Foreground="#F59E0B" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                            </StackPanel>
+
+                        </UniformGrid>
+                    </Border>
+                </StackPanel>
+            </TabItem>
+
+            <TabItem Header="📊 통계 및 분석">
+                <Border Background="White" CornerRadius="20" Padding="30">
+                    <StackPanel>
+                        <TextBlock Text="📈 최근 10분 집중 흐름" FontWeight="Heavy" FontSize="22" Foreground="#334155" Margin="0,0,0,5"/>
+                        <TextBlock Text="1분 단위로 갱신된 뇌의 집중 상태를 높이로 확인하세요." FontSize="14" Foreground="#94A3B8" Margin="0,0,0,40"/>
+
+                        <Grid Height="220" Width="500" HorizontalAlignment="Center">
+                            <StackPanel x:Name="ChartArea" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Bottom" Height="220"/>
+                        </Grid>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,30,0,0">
+                            <Border Width="14" Height="14" Background="#3B82F6" CornerRadius="3" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="집중도 점수 (0~100%)" Foreground="#64748B" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>

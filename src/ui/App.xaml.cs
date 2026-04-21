@@ -1,17 +1,14 @@
-﻿using H.NotifyIcon;
-using Microsoft.Win32;
-using SharpHook;
-using SharpHook.Data; // 💡 KeyCode의 진짜 주소
 using System;
 using System.Collections.Generic;
-using System.Text.Json;
 using System.IO;
-using System.Text;
-using System.Windows;
-using System.Windows.Media.Imaging;
-using System.Windows.Threading;
-using System.Runtime.InteropServices;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Threading;
+using SharpHook;
+using SharpHook.Native;
 
 namespace Project1
 {
@@ -48,15 +45,17 @@ namespace Project1
         private IntPtr _lastWindowHandle = IntPtr.Zero;
         private DateTime _lastKeyReleaseTime = DateTime.MinValue;
 
-        // 💡 SharpHook.Data.KeyCode 로 완벽 매칭
-        private Dictionary<SharpHook.Data.KeyCode, DateTime> _pressedKeys = new Dictionary<SharpHook.Data.KeyCode, DateTime>();
+        // 💡 SharpHook.Native.KeyCode 로 완벽 매칭
+        private Dictionary<KeyCode, DateTime> _pressedKeys = new Dictionary<KeyCode, DateTime>();
 
         private int _lastMouseX = -1;
         private int _lastMouseY = -1;
         private double _lastMouseAngle = -1000;
         private DateTime _lastMouseTime = DateTime.MinValue;
 
-        [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
 
@@ -65,20 +64,25 @@ namespace Project1
             base.OnStartup(e);
             Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
+            // 1. 데이터 로드
             LoadUserData();
 
+            // 2. 트레이 아이콘 설정 (액션 연결)
             _trayManager.OnShowDashboard = ShowDashboard;
             _trayManager.OnResetData = ResetAllData;
             _trayManager.OnExit = () => Current.Shutdown();
             _trayManager.Initialize();
 
+            // 3. 후킹 매니저 설정 및 시작
             _hookManager.KeyPressed += OnKeyPressed;
             _hookManager.KeyReleased += OnKeyReleased;
             _hookManager.MousePressed += OnMousePressed;
             _hookManager.MouseMoved += OnMouseMoved;
             _hookManager.Start();
 
-            _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            // 4. 메인 타이머 시작
+            _timer = new DispatcherTimer();
+            _timer.Interval = TimeSpan.FromSeconds(1);
             _timer.Tick += Timer_Tick;
             _timer.Start();
         }
@@ -91,8 +95,10 @@ namespace Project1
             _tickCounter++;
             MonitorWindowSwitch(now);
 
+            // 실시간 상태 업데이트
             _engine.UpdateRealtimeStatus(_keyTimes.Count, _mouseTimes.Count, _contextSwitchTimes.Count, _engine.IsFirstAnalysisComplete);
 
+            // 60초 주기 심층 분석
             if (_tickCounter >= 60)
             {
                 double avgDt = _minuteCountDt > 0 ? _minuteTotalDt / _minuteCountDt : _engine.PersonalEmaDt;
@@ -112,7 +118,7 @@ namespace Project1
         private void OnKeyPressed(object? sender, KeyboardHookEventArgs e)
         {
             DateTime now = DateTime.Now;
-            var keyCode = (SharpHook.Data.KeyCode)e.Data.KeyCode;
+            var keyCode = e.Data.KeyCode;
 
             lock (_keyTimes)
             {
@@ -121,7 +127,7 @@ namespace Project1
                 _keyCount++;
                 _engine.TotalAccumulatedKeys++;
 
-                if (keyCode == SharpHook.Data.KeyCode.VcBackspace)
+                if (keyCode == KeyCode.VcBackspace)
                 {
                     _backspaceCount++;
                     lock (_backspaceTimes) { _backspaceTimes.Enqueue(now); }
@@ -141,7 +147,7 @@ namespace Project1
         private void OnKeyReleased(object? sender, KeyboardHookEventArgs e)
         {
             DateTime now = DateTime.Now;
-            var keyCode = (SharpHook.Data.KeyCode)e.Data.KeyCode;
+            var keyCode = e.Data.KeyCode;
 
             lock (_keyTimes)
             {
@@ -164,7 +170,12 @@ namespace Project1
         private void OnMouseMoved(object? sender, MouseHookEventArgs e)
         {
             DateTime now = DateTime.Now;
-            if (_lastMouseX == -1) { _lastMouseX = e.Data.X; _lastMouseY = e.Data.Y; _lastMouseTime = now; return; }
+
+            if (_lastMouseX == -1)
+            {
+                _lastMouseX = e.Data.X; _lastMouseY = e.Data.Y; _lastMouseTime = now;
+                return;
+            }
 
             int dx = e.Data.X - _lastMouseX;
             int dy = e.Data.Y - _lastMouseY;
@@ -197,7 +208,7 @@ namespace Project1
             }
             _lastMouseX = e.Data.X; _lastMouseY = e.Data.Y; _lastMouseTime = now;
         }
-        #endregion // 💡 여기 잘 닫혀 있습니다!
+        #endregion
 
         #region 유틸리티 및 데이터 관리
         private void CleanOldData(DateTime now)
@@ -257,7 +268,7 @@ namespace Project1
             lock (_keyTimes) { _keyTimes.Clear(); _mouseTimes.Clear(); _backspaceTimes.Clear(); _contextSwitchTimes.Clear(); _jerkTimes.Clear(); _mouseTurnTimes.Clear(); }
             _engine = new AnalysisEngine();
         }
-        #endregion // 💡 빼먹었던 부분 추가했습니다!
+        #endregion
 
         #region 데이터 로드 및 저장 (Persistence)
         private void LoadUserData()
@@ -308,13 +319,14 @@ namespace Project1
             }
             catch { }
         }
-        #endregion // 💡 빼먹었던 부분 추가했습니다!
+        #endregion
 
-        #region Dashboard 연동용 Getters
+        #region Dashboard 연동용 Public Getters
         public bool GetIsFirstAnalysisComplete() => _engine.IsFirstAnalysisComplete;
         public int GetRemainingSeconds() => 60 - _tickCounter;
         public int GetFocus() => _engine.FocusScore;
         public int GetStress() => _engine.StressScore;
+        public int GetFatigue() => 0;
         public int GetCurrentKPM() => _keyTimes.Count;
         public int GetCurrentMPM() => _mouseTimes.Count;
         public int GetCurrentAPM() => _keyTimes.Count + _mouseTimes.Count;
@@ -327,7 +339,7 @@ namespace Project1
         public List<int> GetHistoryStates() => new List<int>(_historyStates);
         public double GetCurrentDt() => _minuteCountDt > 0 ? _minuteTotalDt / _minuteCountDt : _engine.PersonalEmaDt;
         public double GetCurrentFt() => _minuteCountFt > 0 ? _minuteTotalFt / _minuteCountFt : _engine.PersonalEmaFt;
-        #endregion // 💡 빼먹었던 부분 추가했습니다!
+        #endregion
 
         protected override void OnExit(ExitEventArgs e)
         {
