@@ -1,11 +1,19 @@
-﻿################################################################################
-# 이 .gitignore 파일은 Microsoft(R) Visual Studio에서 자동으로 만들어졌습니다.
-################################################################################
+# Build output (only inside src/)
+src/**/bin/
+src/**/obj/
+*.user
 
-/.vs
-/Project1/bin/Debug/net10.0-windows
-/Project1/obj
-/Project1/x64/Debug
-/Project1/Project1.csproj.user
-/UpgradeLog.htm
-/UpgradeLog2.htm
+# Visual Studio
+.vs/
+*.suo
+*.sln.docstates
+
+# Logs
+*.log
+UpgradeLog*.htm
+
+# Personal data generated at runtime
+userData.json
+
+# Unrelated scripts
+claude.js

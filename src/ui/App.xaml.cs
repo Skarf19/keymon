@@ -1,14 +1,17 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Threading;
 using SharpHook;
-using SharpHook.Native;
+using SharpHook.Data;
 
 namespace Project1
 {
@@ -48,6 +51,12 @@ namespace Project1
         // 💡 SharpHook.Native.KeyCode 로 완벽 매칭
         private Dictionary<KeyCode, DateTime> _pressedKeys = new Dictionary<KeyCode, DateTime>();
 
+        // Unity bridge
+        private Process? _unityProcess;
+        private UdpClient? _udpSender;
+        private IPEndPoint? _unityEndPoint;
+        private int _lastSentState = -1;
+
         private int _lastMouseX = -1;
         private int _lastMouseY = -1;
         private double _lastMouseAngle = -1000;
@@ -85,6 +94,33 @@ namespace Project1
             _timer.Interval = TimeSpan.FromSeconds(1);
             _timer.Tick += Timer_Tick;
             _timer.Start();
+
+            // 5. Unity 캐릭터 실행
+            LaunchUnity();
+        }
+
+        private void LaunchUnity()
+        {
+            string exePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "unity", "KeyboardCat.exe");
+            if (!File.Exists(exePath)) return;
+
+            _udpSender = new UdpClient();
+            _unityEndPoint = new IPEndPoint(IPAddress.Loopback, 5000);
+
+            _unityProcess = new Process();
+            _unityProcess.StartInfo.FileName = exePath;
+            _unityProcess.Start();
+        }
+
+        private void SendToUnity(int state)
+        {
+            if (_udpSender == null || _unityEndPoint == null) return;
+            try
+            {
+                byte[] data = Encoding.UTF8.GetBytes(state.ToString());
+                _udpSender.Send(data, data.Length, _unityEndPoint);
+            }
+            catch { }
         }
 
         private void Timer_Tick(object? sender, EventArgs e)
@@ -112,6 +148,13 @@ namespace Project1
             }
 
             UpdateTrayTooltip();
+
+            int currentState = _engine.FocusState;
+            if (currentState != _lastSentState)
+            {
+                SendToUnity(currentState);
+                _lastSentState = currentState;
+            }
         }
 
         #region 입력 이벤트 핸들러
@@ -347,6 +390,8 @@ namespace Project1
             _trayManager.Dispose();
             SaveUserData();
             _timer?.Stop();
+            try { _unityProcess?.Kill(); } catch { }
+            _udpSender?.Close();
             base.OnExit(e);
             Environment.Exit(0);
         }

@@ -12,7 +12,7 @@ namespace Project1
     {
         private TaskbarIcon? _notifyIcon;
         private const string RunKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
-        private const string AppName = "Project1";
+        private const string AppName = "Keymon";
 
         // App에서 처리할 동작들을 연결할 액션(Action)들
         public Action? OnShowDashboard;

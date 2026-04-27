@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -7,6 +7,36 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
   </PropertyGroup>
+
+  <!--
+    Source files live in sibling directories (engine/, hooks/, ui/).
+    The SDK default glob only covers src/core/, so we list them explicitly.
+    Dead WinForms files (Form1.*.cs, Form1.Tray.cs) are intentionally omitted.
+  -->
+
+  <ItemGroup>
+    <Compile Include="..\engine\AnalysisEngine.cs" />
+    <Compile Include="..\hooks\InputHookManager.cs" />
+    <Compile Include="..\ui\App.xaml.cs" />
+    <Compile Include="..\ui\DashboardWindow.xaml.cs" />
+    <Compile Include="..\ui\TrayIconManager.cs" />
+    <Compile Include="..\ui\MainWindow.xaml.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ApplicationDefinition Include="..\ui\App.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </ApplicationDefinition>
+    <Page Include="..\ui\DashboardWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="..\ui\MainWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+  </ItemGroup>
 
   <ItemGroup>
     <None Remove="icon.ico" />
@@ -20,6 +50,14 @@
   <ItemGroup>
     <Content Include="icon.ico">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\bin\unity\**\*"
+             Exclude="..\..\bin\unity\KeyboardCat_BurstDebugInformation_DoNotShip\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>unity\%(RecursiveDir)%(Filename)%(Extension)</Link>
     </Content>
   </ItemGroup>
 

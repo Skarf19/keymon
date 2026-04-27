@@ -1,5 +1,4 @@
 ﻿using SharpHook;
-using SharpHook.Native; // 네이티브 이벤트 핸들링을 위해 필요
 using System;
 using System.Threading.Tasks;
 
