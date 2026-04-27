@@ -2,8 +2,6 @@
 
 A background app that watches how you type and shows your focus level through a pixel cat in the taskbar.
 
-> It tracks **how** you type — not **what** you type. Nothing is recorded or sent anywhere.
-
 ---
 
 ## Before You Start
@@ -31,7 +29,7 @@ cd keymon
 dotnet run --project src/core/Keymon.Core.csproj
 ```
 
-The first time you run it, it downloads some packages automatically. Just wait about 30 seconds.
+The first time you run it, it downloads some packages automatically. 
 
 ---
 
@@ -60,15 +58,6 @@ The cat won't do anything for the first 60 seconds — it's learning your typing
 
 **`dotnet` command not found**
 → .NET 10 SDK isn't installed yet, or you need to restart your terminal after installing
-
-**Cat window doesn't appear**
-→ Make sure the `bin/unity/` folder exists in the project — don't delete it
-
-**Cat just sits there and doesn't change**
-→ Wait 60 seconds for the first analysis to finish
-
-**App won't start — says file is in use**
-→ A previous version is still running. Right-click the taskbar icon and exit it first
 
 ---
 
