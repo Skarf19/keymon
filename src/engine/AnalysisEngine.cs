@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace Project1
+namespace Keymon
 {
     public class AnalysisEngine
     {
@@ -33,7 +33,21 @@ namespace Project1
         public string StateReason { get; private set; } = "데이터 분석 중...";
         public bool IsFirstAnalysisComplete { get; set; } = false;
 
-        // 4. 실시간 상태 판별 로직
+        // 4. 데이터 초기화 (사용자가 트레이에서 '초기화'를 선택했을 때 MonitoringService가 호출)
+        // 학습된 모든 개인 베이스라인과 현재 분석 결과를 초기값으로 되돌립니다.
+        public void Reset()
+        {
+            PersonalEmaKpm = 0; PersonalEmaEr = 0; PersonalEmaDt = 0;
+            PersonalEmaFt = 0; PersonalEmaMj = 0;
+            PersonalVarKpm = 0; PersonalVarEr = 0; PersonalVarDt = 0;
+            PersonalVarFt = 0; PersonalVarMj = 0;
+            TotalAccumulatedKeys = 0;
+            FocusScore = 0; StressScore = 0; FocusState = 0;
+            StateReason = "데이터 분석 중...";
+            IsFirstAnalysisComplete = false;
+        }
+
+        // 5. 실시간 상태 판별 로직
         public void UpdateRealtimeStatus(int currentKpm, int currentMpm, int currentCsr, bool isFirstComplete)
         {
             int apm = currentKpm + currentMpm;

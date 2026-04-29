@@ -2,7 +2,7 @@
 using System;
 using System.Threading.Tasks;
 
-namespace Project1
+namespace Keymon
 {
     public class InputHookManager : IDisposable
     {

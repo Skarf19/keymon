@@ -15,12 +15,21 @@
   -->
 
   <ItemGroup>
+    <!-- 기존 파일들 -->
     <Compile Include="..\engine\AnalysisEngine.cs" />
     <Compile Include="..\hooks\InputHookManager.cs" />
     <Compile Include="..\ui\App.xaml.cs" />
     <Compile Include="..\ui\DashboardWindow.xaml.cs" />
     <Compile Include="..\ui\TrayIconManager.cs" />
     <Compile Include="..\ui\MainWindow.xaml.cs" />
+
+    <!-- 리팩토링으로 추가된 새 파일들 -->
+    <Compile Include="..\engine\MetricSnapshot.cs" />
+    <Compile Include="..\engine\MetricCollector.cs" />
+    <Compile Include="..\engine\MonitoringService.cs" />
+    <Compile Include="..\engine\PersistenceService.cs" />
+    <Compile Include="..\ui\ISessionData.cs" />
+    <Compile Include="..\ui\UnityBridge.cs" />
   </ItemGroup>
 
   <ItemGroup>
