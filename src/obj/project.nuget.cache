@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "dgSpecHash": "vo3hN4iMraM=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\euninjun\\keymon\\src\\Keymon.Core.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\euninjun\\.nuget\\packages\\h.generatedicons.system.drawing\\2.4.1\\h.generatedicons.system.drawing.2.4.1.nupkg.sha512",
+    "C:\\Users\\euninjun\\.nuget\\packages\\h.notifyicon\\2.4.1\\h.notifyicon.2.4.1.nupkg.sha512",
+    "C:\\Users\\euninjun\\.nuget\\packages\\h.notifyicon.wpf\\2.4.1\\h.notifyicon.wpf.2.4.1.nupkg.sha512",
+    "C:\\Users\\euninjun\\.nuget\\packages\\sharphook\\7.1.1\\sharphook.7.1.1.nupkg.sha512"
+  ],
+  "logs": []
+}

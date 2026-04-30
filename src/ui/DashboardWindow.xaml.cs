@@ -1,76 +1,80 @@
-﻿using System;
+using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 
-namespace Project1
+namespace Keymon
 {
     public partial class DashboardWindow : Window
     {
-        private App _app;
+        // ISessionData: 구체적인 클래스(MonitoringService) 대신 인터페이스를 참조합니다.
+        // 이 덕분에 DashboardWindow는 데이터가 어디서 오는지 알 필요 없이,
+        // "이 인터페이스를 구현한 누군가"로부터 데이터를 읽기만 합니다.
+        private readonly ISessionData _session;
+
         private DispatcherTimer _uiTimer;
         private string _currentAnimState = "";
 
-        public DashboardWindow(App app)
+        // 생성자: App.xaml.cs의 ShowDashboard()에서 MonitoringService를 ISessionData로 전달합니다.
+        // App → new DashboardWindow(monitoringService) → _session = monitoringService
+        public DashboardWindow(ISessionData session)
         {
             InitializeComponent();
-            _app = app;
+            _session = session;
 
+            // 1초마다 UpdateDashboard를 호출하는 타이머를 시작합니다.
             _uiTimer = new DispatcherTimer();
             _uiTimer.Interval = TimeSpan.FromSeconds(1);
             _uiTimer.Tick += UpdateDashboard;
             _uiTimer.Start();
         }
 
+        // 1초마다 호출됩니다. ISessionData에서 최신값을 읽어 UI를 갱신합니다.
         private void UpdateDashboard(object? sender, EventArgs e)
         {
-            // 하단 실시간 데이터 갱신
-            TxtKpm.Text = _app.GetCurrentKPM().ToString();
-            TxtMpm.Text = _app.GetCurrentMPM().ToString();
-            TxtApm.Text = _app.GetCurrentAPM().ToString();
-            TxtFocus.Text = $"{_app.GetFocus()}%";
+            // '_session.현재속성'으로 데이터를 읽습니다. (이전: _app.GetCurrentKPM())
+            TxtKpm.Text = _session.CurrentKpm.ToString();
+            TxtMpm.Text = _session.CurrentMpm.ToString();
+            TxtApm.Text = _session.CurrentApm.ToString();
+            TxtFocus.Text = $"{_session.FocusScore}%";
 
-            TxtEr.Text = $"{_app.GetBackspaceCount()} 회";
-            TxtCsr.Text = $"{_app.GetContextSwitchCount()} 번";
-            TxtJerk.Text = $"{_app.GetJerkCount()} 회";
-            TxtStress.Text = $"{_app.GetStress()} 점";
+            TxtEr.Text = $"{_session.BackspaceCount} 회";
+            TxtCsr.Text = $"{_session.ContextSwitchCount} 번";
+            TxtJerk.Text = $"{_session.JerkCount} 회";
+            TxtStress.Text = $"{_session.StressScore} 점";
 
-            TxtReason.Text = _app.GetStateReason();
+            TxtReason.Text = _session.StateReason;
 
             DrawHistoryChart();
 
-            // 💡 [핵심 추가] 상단 타이머 UI 갱신 (60초 -> 0초로 줄어듦)
-            int remaining = _app.GetRemainingSeconds();
+            int remaining = _session.RemainingSeconds;
             TxtUpdateSec.Text = $"{remaining}초";
             BarUpdate.Value = remaining;
 
-            // 1. 초기 분석 (첫 60초) 대기 상태
-            if (!_app.GetIsFirstAnalysisComplete())
+            // 첫 60초 분석 전: 대기 애니메이션 표시
+            if (!_session.IsFirstAnalysisComplete)
             {
                 TxtStatus.Text = "나의 집중 패턴 모니터링";
-
                 TxtCharacter.Text = "⏳";
                 TxtStateTitle.Text = "패턴 분석 중";
-                TxtCharState.Text = "정밀한 기준을 세우는 중입니다."; // (타이머가 위에 생겼으니 남은 시간 텍스트 제거)
+                TxtCharState.Text = "정밀한 기준을 세우는 중입니다.";
                 CharGlow.Color = Colors.LightBlue;
 
                 if (_currentAnimState != "AnimIdle")
                 {
                     if (!string.IsNullOrEmpty(_currentAnimState))
                         ((Storyboard)FindResource(_currentAnimState)).Stop();
-
                     ((Storyboard)FindResource("AnimIdle")).Begin();
                     _currentAnimState = "AnimIdle";
                 }
-
-                return; // 여기서 멈춤
+                return;
             }
 
-            // 2. 분석 완료 후 정상 작동 상태
+            // 분석 완료 후: 집중 상태에 맞는 캐릭터 애니메이션 표시
             TxtStatus.Text = "나의 집중 패턴 모니터링";
-            UpdateCharacterAnimation(_app.GetFocusState());
+            UpdateCharacterAnimation(_session.FocusState);
         }
 
         private void UpdateCharacterAnimation(int focusState)
@@ -81,27 +85,32 @@ namespace Project1
             string desc = "";
             Color glowColor = Colors.LightGray;
 
+            // switch 문: focusState 값에 따라 다른 케이스를 실행합니다.
             switch (focusState)
             {
-                case 4: // Deep Focus
-                    targetState = "AnimDeepFocus"; emoji = "🔥"; title = "Deep Focus"; desc = "최상의 효율입니다! 이대로 쭉 가보세요."; glowColor = Colors.OrangeRed; break;
-                case 3: // Focused
-                    targetState = "AnimFocused"; emoji = "🤓"; title = "Focused"; desc = "안정적인 집중 상태입니다."; glowColor = Colors.DodgerBlue; break;
-                case 2: // Engaged
-                    targetState = "AnimEngaged"; emoji = "🙂"; title = "Engaged"; desc = "보통 수준의 활동을 유지하고 있습니다."; glowColor = Colors.LightGreen; break;
-                case 1: // Distracted
-                    targetState = "AnimDistracted"; emoji = "😵‍💫"; title = "Distracted"; desc = "주의가 분산되었습니다! 업무 효율이 급감 중입니다."; glowColor = Colors.Gold; break;
-                default: // 0: Idle (공백 상태 - 적극 개입 모드)
-                    targetState = "AnimIdle"; emoji = "⚠️"; title = "IDLE (정지됨)"; desc = "업무 효율 낮음 - 지속적인 도움 필요 🆘"; glowColor = Colors.IndianRed; break;
+                case 4:
+                    targetState = "AnimDeepFocus"; emoji = "🔥"; title = "Deep Focus";
+                    desc = "최상의 효율입니다! 이대로 쭉 가보세요."; glowColor = Colors.OrangeRed; break;
+                case 3:
+                    targetState = "AnimFocused"; emoji = "🤓"; title = "Focused";
+                    desc = "안정적인 집중 상태입니다."; glowColor = Colors.DodgerBlue; break;
+                case 2:
+                    targetState = "AnimEngaged"; emoji = "🙂"; title = "Engaged";
+                    desc = "보통 수준의 활동을 유지하고 있습니다."; glowColor = Colors.LightGreen; break;
+                case 1:
+                    targetState = "AnimDistracted"; emoji = "😵‍💫"; title = "Distracted";
+                    desc = "주의가 분산되었습니다! 업무 효율이 급감 중입니다."; glowColor = Colors.Gold; break;
+                default:
+                    targetState = "AnimIdle"; emoji = "⚠️"; title = "IDLE (정지됨)";
+                    desc = "업무 효율 낮음 - 지속적인 도움 필요 🆘"; glowColor = Colors.IndianRed; break;
             }
 
-            // 💡 핵심 해결: 애니메이션 교체 여부와 상관없이 글씨와 색상은 무조건! 갱신합니다.
             TxtCharacter.Text = emoji;
             TxtStateTitle.Text = title;
             TxtCharState.Text = desc;
             CharGlow.Color = glowColor;
 
-            // 애니메이션은 실제로 다른 상태(예: Idle -> Engaged)로 넘어갈 때만 교체합니다.
+            // 상태가 실제로 바뀔 때만 애니메이션을 전환합니다 (불필요한 재시작 방지).
             if (_currentAnimState != targetState)
             {
                 if (!string.IsNullOrEmpty(_currentAnimState))
@@ -116,6 +125,7 @@ namespace Project1
             }
         }
 
+        // X 버튼을 눌러도 창을 닫지 않고 숨깁니다 (백그라운드 앱이므로).
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
             e.Cancel = true;
@@ -124,14 +134,19 @@ namespace Project1
 
         private void DrawHistoryChart()
         {
-            var scores = _app.GetHistoryScores();
-            // 상태(states)는 이제 차트 그릴 때 쓰지 않으므로 가져오지 않아도 됩니다.
+            // ISessionData.HistoryScores는 복사본을 반환하므로 안전하게 사용할 수 있습니다.
+            var scores = _session.HistoryScores;
 
             ChartArea.Children.Clear();
 
             if (scores.Count == 0)
             {
-                ChartArea.Children.Add(new TextBlock { Text = "아직 기록된 데이터가 없습니다.", Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#94A3B8")), VerticalAlignment = VerticalAlignment.Center });
+                ChartArea.Children.Add(new TextBlock
+                {
+                    Text = "아직 기록된 데이터가 없습니다.",
+                    Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#94A3B8")),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
                 return;
             }
 
@@ -140,13 +155,11 @@ namespace Project1
                 int score = scores[i];
                 double barHeight = Math.Max(score * 1.5, 10);
 
-                // 💡 [UX 핵심 수정] 무조건 똑같은 파란색(집중의 상징)으로 통일! 
-                // 이제 사용자는 복잡한 색상 의미를 생각할 필요 없이, 오직 막대기의 '높이'만 직관적으로 받아들입니다.
                 Border bar = new Border
                 {
                     Width = 32,
                     Height = barHeight,
-                    Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3B82F6")), // 테마 컬러인 시원한 파란색
+                    Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3B82F6")),
                     CornerRadius = new CornerRadius(5, 5, 0, 0),
                     ToolTip = $"집중도: {score}%"
                 };
@@ -173,11 +186,8 @@ namespace Project1
 
                 container.Children.Add(bar);
                 container.Children.Add(timeLabel);
-
                 ChartArea.Children.Add(container);
             }
         }
-
     }
-
 }

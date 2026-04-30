@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <!--
+    .cs 파일은 SDK가 src/ 하위 모든 폴더에서 자동으로 검색합니다.
+    별도로 <Compile Include>를 나열할 필요가 없습니다.
+
+    폴더 구조:
+      input/     - Layer 1: 입력 캡처 (InputHookManager, MetricCollector)
+      analysis/  - Layer 2: 데이터 분석 (AnalysisEngine, MetricSnapshot)
+      services/  - Layer 3: 세션 조율 (MonitoringService, PersistenceService, ISessionData)
+      ui/        - Layer 4: 프레젠테이션 (DashboardWindow, TrayIconManager, UnityBridge)
+  -->
+
+  <!--
+    XAML 파일(.xaml)도 SDK가 자동으로 검색합니다.
+    App.xaml → ApplicationDefinition (Application을 상속하므로 자동 감지)
+    ui/*.xaml → Page (자동 감지)
+    별도 선언 불필요.
+  -->
+
+  <ItemGroup>
+    <None Remove="icon.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="H.NotifyIcon.Wpf" Version="2.4.1" />
+    <PackageReference Include="SharpHook" Version="7.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="icon.ico">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- .csproj가 src/에 있으므로 bin/unity는 한 단계 위(../bin/unity)입니다. -->
+    <Content Include="..\bin\unity\**\*"
+             Exclude="..\bin\unity\KeyboardCat_BurstDebugInformation_DoNotShip\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>unity\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Content>
+  </ItemGroup>
+
+</Project>

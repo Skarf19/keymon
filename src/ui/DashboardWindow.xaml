@@ -1,4 +1,4 @@
-﻿<Window x:Class="Project1.DashboardWindow"
+﻿<Window x:Class="Keymon.DashboardWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="집중력 가이드 대시보드" Height="780" Width="650" 
