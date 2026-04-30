@@ -40,7 +40,7 @@ The first time you run it, it downloads some packages automatically.
 
 **Right-click the taskbar icon** to open the dashboard or close the app.
 
-The cat won't do anything for the first 60 seconds — it's learning your typing pattern first. That's normal.
+The cat does not react to the typing but moving.
 
 ---
 
@@ -49,7 +49,7 @@ The cat won't do anything for the first 60 seconds — it's learning your typing
 1. The app runs in the background and watches your typing rhythm
 2. Every minute it figures out your focus level
 3. There are 5 states: `Idle → Distracted → Engaged → Focused → Deep Focus`
-4. The cat's animation changes to match your state
+4. The cat's animation changes to match your state (not working)
 5. The dashboard shows your stats in real time
 
 ---
