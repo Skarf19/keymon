@@ -1,0 +1,145 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "Keymon.Core/1.0.0": {
+        "dependencies": {
+          "H.NotifyIcon.Wpf": "2.4.1",
+          "SharpHook": "7.1.1"
+        },
+        "runtime": {
+          "Keymon.Core.dll": {}
+        }
+      },
+      "H.GeneratedIcons.System.Drawing/2.4.1": {
+        "runtime": {
+          "lib/net10.0/H.GeneratedIcons.System.Drawing.dll": {
+            "assemblyVersion": "2.0.0.0",
+            "fileVersion": "2.4.1.0"
+          }
+        }
+      },
+      "H.NotifyIcon/2.4.1": {
+        "dependencies": {
+          "H.GeneratedIcons.System.Drawing": "2.4.1"
+        },
+        "runtime": {
+          "lib/net10.0/H.NotifyIcon.dll": {
+            "assemblyVersion": "2.0.0.0",
+            "fileVersion": "2.4.1.0"
+          }
+        }
+      },
+      "H.NotifyIcon.Wpf/2.4.1": {
+        "dependencies": {
+          "H.NotifyIcon": "2.4.1"
+        },
+        "runtime": {
+          "lib/net10.0-windows7.0/H.NotifyIcon.Wpf.dll": {
+            "assemblyVersion": "2.0.0.0",
+            "fileVersion": "2.4.1.0"
+          }
+        }
+      },
+      "SharpHook/7.1.1": {
+        "runtime": {
+          "lib/net10.0/SharpHook.dll": {
+            "assemblyVersion": "7.1.1.0",
+            "fileVersion": "7.1.1.0"
+          }
+        },
+        "runtimeTargets": {
+          "runtimes/linux-arm/native/libuiohook.so": {
+            "rid": "linux-arm",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/linux-arm64/native/libuiohook.so": {
+            "rid": "linux-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/linux-x64/native/libuiohook.so": {
+            "rid": "linux-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/maccatalyst-arm64/native/libuiohook.dylib": {
+            "rid": "maccatalyst-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/maccatalyst-x64/native/libuiohook.dylib": {
+            "rid": "maccatalyst-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/osx-arm64/native/libuiohook.dylib": {
+            "rid": "osx-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/osx-x64/native/libuiohook.dylib": {
+            "rid": "osx-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-arm64/native/uiohook.dll": {
+            "rid": "win-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x64/native/uiohook.dll": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x86/native/uiohook.dll": {
+            "rid": "win-x86",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "Keymon.Core/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "H.GeneratedIcons.System.Drawing/2.4.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-gjYhuwHQzISqKhcNYaRdDhzKCoqLZii+6TTHP0MQf4Q9+H6z4f4A5Xu/j8B8XpFPQ1grCMlQYREvNyNJT9Q/Bg==",
+      "path": "h.generatedicons.system.drawing/2.4.1",
+      "hashPath": "h.generatedicons.system.drawing.2.4.1.nupkg.sha512"
+    },
+    "H.NotifyIcon/2.4.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-nNPgNzo5UHcWYpVLO3AsRlH8fKE9shBA7/WLpZrFZUFbzpKGcLnz15Kmg0pQ851aboAfm3YuHjYFsYQges/pyw==",
+      "path": "h.notifyicon/2.4.1",
+      "hashPath": "h.notifyicon.2.4.1.nupkg.sha512"
+    },
+    "H.NotifyIcon.Wpf/2.4.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-aDfDSHCCOWgQoIvAApiog/MhriXibacqANQm+b5GaRCgRg92u5J2QcoW2C+wIblgxhtGx3o32/DCKWRR5C/KLw==",
+      "path": "h.notifyicon.wpf/2.4.1",
+      "hashPath": "h.notifyicon.wpf.2.4.1.nupkg.sha512"
+    },
+    "SharpHook/7.1.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-IgzfEVFCVsO2LtMmAR6fAxEsCTJlqJtXGELLFBynGs6mlZwL/u2c+o3UXpQ7Yrc3+57eurKNSRfIKvaYBtccBA==",
+      "path": "sharphook/7.1.1",
+      "hashPath": "sharphook.7.1.1.nupkg.sha512"
+    }
+  }
+}
