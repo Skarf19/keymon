@@ -1,29 +1,32 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\euninjun\\keymon\\src\\Keymon.Core.csproj": {}
+    "C:\\Users\\ccpin\\OneDrive\\Desktop\\KEYMON Code\\keymon\\src\\Keymon.Core.csproj": {}
   },
   "projects": {
-    "C:\\Users\\euninjun\\keymon\\src\\Keymon.Core.csproj": {
+    "C:\\Users\\ccpin\\OneDrive\\Desktop\\KEYMON Code\\keymon\\src\\Keymon.Core.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\euninjun\\keymon\\src\\Keymon.Core.csproj",
+        "projectUniqueName": "C:\\Users\\ccpin\\OneDrive\\Desktop\\KEYMON Code\\keymon\\src\\Keymon.Core.csproj",
         "projectName": "Keymon.Core",
-        "projectPath": "C:\\Users\\euninjun\\keymon\\src\\Keymon.Core.csproj",
-        "packagesPath": "C:\\Users\\euninjun\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\euninjun\\keymon\\src\\obj\\",
+        "projectPath": "C:\\Users\\ccpin\\OneDrive\\Desktop\\KEYMON Code\\keymon\\src\\Keymon.Core.csproj",
+        "packagesPath": "C:\\Users\\ccpin\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\ccpin\\OneDrive\\Desktop\\KEYMON Code\\keymon\\src\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\euninjun\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\ccpin\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
         "originalTargetFrameworks": [
           "net10.0-windows"
         ],
         "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
-          "net10.0-windows7.0": {
+          "net10.0-windows": {
+            "framework": "net10.0-windows7.0",
             "targetAlias": "net10.0-windows",
             "projectReferences": {}
           }
@@ -41,7 +44,8 @@
         "SdkAnalysisLevel": "10.0.200"
       },
       "frameworks": {
-        "net10.0-windows7.0": {
+        "net10.0-windows": {
+          "framework": "net10.0-windows7.0",
           "targetAlias": "net10.0-windows",
           "dependencies": {
             "H.NotifyIcon.Wpf": {
@@ -51,6 +55,10 @@
             "SharpHook": {
               "target": "Package",
               "version": "[7.1.1, )"
+            },
+            "System.Drawing.Common": {
+              "target": "Package",
+              "version": "[10.0.7, )"
             }
           },
           "imports": [
@@ -72,7 +80,7 @@
               "privateAssets": "none"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.202/PortableRuntimeIdentifierGraph.json",
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.203/PortableRuntimeIdentifierGraph.json",
           "packagesToPrune": {
             "Microsoft.CSharp": "(,4.7.32767]",
             "Microsoft.VisualBasic": "(,10.4.32767]",
