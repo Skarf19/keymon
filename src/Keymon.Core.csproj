@@ -33,9 +33,118 @@
   <ItemGroup>
     <PackageReference Include="H.NotifyIcon.Wpf" Version="2.4.1" />
     <PackageReference Include="SharpHook" Version="7.1.1" />
+    <PackageReference Include="System.Drawing.Common" Version="10.0.7" />
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim1\0.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim1\1.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim1\10.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim1\11.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim1\2.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim1\3.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim1\4.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim1\5.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim1\6.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim1\7.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim1\8.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim1\9.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim2\0.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim2\1.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim2\10.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim2\11.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim2\2.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim2\3.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim2\4.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim2\5.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim2\6.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim2\7.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim2\8.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim2\9.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim3\0.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim3\1.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim3\10.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim3\11.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim3\2.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim3\3.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim3\4.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim3\5.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim3\6.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim3\7.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim3\8.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="bin\Debug\net10.0-windows\Assets\Anim3\9.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="icon.ico">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -43,8 +152,7 @@
 
   <ItemGroup>
     <!-- .csproj가 src/에 있으므로 bin/unity는 한 단계 위(../bin/unity)입니다. -->
-    <Content Include="..\bin\unity\**\*"
-             Exclude="..\bin\unity\KeyboardCat_BurstDebugInformation_DoNotShip\**\*">
+    <Content Include="..\bin\unity\**\*" Exclude="..\bin\unity\KeyboardCat_BurstDebugInformation_DoNotShip\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>unity\%(RecursiveDir)%(Filename)%(Extension)</Link>
     </Content>
