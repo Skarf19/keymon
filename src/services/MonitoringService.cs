@@ -110,6 +110,7 @@ namespace Keymon
             string[] stateNames = { "Idle ☕", "Distracted 😵‍💫", "Engaged 🙂", "Focused 🤓", "Deep Focus 🔥" };
             string stateText = stateNames[Math.Clamp(_engine.FocusState, 0, 4)];
             _tray.UpdateTooltip($"🎯 {stateText} ({_engine.FocusScore}%)\nKPM: {_lastSnapshot.Kpm} | 창 전환: {_lastSnapshot.ContextSwitchCount}회");
+            _tray.UpdateAnimationByState(_engine.FocusState);
         }
 
         // ── ISessionData 구현부 ──────────────────────────────────────────────────
