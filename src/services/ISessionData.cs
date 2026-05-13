@@ -26,6 +26,9 @@ namespace Keymon
         // AnalysisEngine이 계산한 스트레스 점수 (0~100)
         int StressScore { get; }
 
+        // AnalysisEngine이 계산한 누적 피로도 (0~100)
+        double FatigueScore { get; }
+
         // 최근 60초 키 입력 수
         int CurrentKpm { get; }
 
@@ -47,11 +50,17 @@ namespace Keymon
         // 현재 집중 상태 (0=Idle, 1=Distracted, 2=Engaged, 3=Focused, 4=Deep Focus)
         int FocusState { get; }
 
+        //현재 피로도 경고 상태(1=안전, 2=주의, 3=위험) - UI 컬러 및 경고창 제어용
+        int FatigueState { get; }
+
         // 현재 상태의 판단 근거 텍스트
         string StateReason { get; }
 
         // 최근 10분의 집중도 점수 기록 (차트 표시용)
         // List<int>는 int 값들의 동적 배열입니다. new List<int>()로 복사본을 반환해 원본 보호.
         List<int> HistoryScores { get; }
+
+        // MonitoringService에서 기록한 _historyFatigue를 전달받기 위해 필요합니다.
+        List<int> HistoryFatigue { get; }
     }
 }
