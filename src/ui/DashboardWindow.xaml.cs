@@ -43,7 +43,23 @@ namespace Keymon
             TxtEr.Text = $"{_session.BackspaceCount} 회";
             TxtCsr.Text = $"{_session.ContextSwitchCount} 번";
             TxtJerk.Text = $"{_session.JerkCount} 회";
-            TxtStress.Text = $"{_session.StressScore} 점";
+
+            // 1. 뇌 과부하 대신 피로도 텍스트 업데이트
+            TxtFatigue.Text = $"{(int)_session.FatigueScore} 점";
+
+            // 2. 피로도 수치에 따라 직관적으로 글자색 변경
+            if (_session.FatigueScore >= 71)
+            {
+                TxtFatigue.Foreground = new SolidColorBrush(Colors.IndianRed); // 위험: 붉은색 (매우 지침)
+            }
+            else if (_session.FatigueScore >= 31)
+            {
+                TxtFatigue.Foreground = new SolidColorBrush(Colors.DarkOrange); // 주의: 주황색 (슬슬 피곤함)
+            }
+            else
+            {
+                TxtFatigue.Foreground = new SolidColorBrush(Colors.MediumSeaGreen); // 안전: 초록색 (컨디션 좋음)
+            }
 
             TxtReason.Text = _session.StateReason;
 
@@ -102,7 +118,7 @@ namespace Keymon
                     desc = "주의가 분산되었습니다! 업무 효율이 급감 중입니다."; glowColor = Colors.Gold; break;
                 default:
                     targetState = "AnimIdle"; emoji = "⚠️"; title = "IDLE (정지됨)";
-                    desc = "업무 효율 낮음 - 지속적인 도움 필요 🆘"; glowColor = Colors.IndianRed; break;
+                    desc = "APM 15 미만으로 업무 효율 낮음 - 지속적인 도움 필요 🆘"; glowColor = Colors.IndianRed; break;
             }
 
             TxtCharacter.Text = emoji;
@@ -126,67 +142,83 @@ namespace Keymon
         }
 
         // X 버튼을 눌러도 창을 닫지 않고 숨깁니다 (백그라운드 앱이므로).
-        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
-        {
-            e.Cancel = true;
-            this.Hide();
-        }
-
         private void DrawHistoryChart()
         {
-            // ISessionData.HistoryScores는 복사본을 반환하므로 안전하게 사용할 수 있습니다.
             var scores = _session.HistoryScores;
+            var fatigue = _session.HistoryFatigue;
 
             ChartArea.Children.Clear();
 
-            if (scores.Count == 0)
-            {
-                ChartArea.Children.Add(new TextBlock
-                {
-                    Text = "아직 기록된 데이터가 없습니다.",
-                    Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#94A3B8")),
-                    VerticalAlignment = VerticalAlignment.Center
-                });
-                return;
-            }
-
             for (int i = 0; i < scores.Count; i++)
             {
-                int score = scores[i];
-                double barHeight = Math.Max(score * 1.5, 10);
+                // --- 1. 집중도 바 세트 ---
+                StackPanel focusGroup = new StackPanel { VerticalAlignment = VerticalAlignment.Bottom };
 
-                Border bar = new Border
+                // 집중도 수치 텍스트
+                TextBlock focusVal = new TextBlock
                 {
-                    Width = 32,
-                    Height = barHeight,
-                    Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3B82F6")),
-                    CornerRadius = new CornerRadius(5, 5, 0, 0),
-                    ToolTip = $"집중도: {score}%"
+                    Text = $"{scores[i]}",
+                    FontSize = 9,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3B82F6")),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(0, 0, 0, 2)
                 };
 
-                int minsAgo = scores.Count - i;
-                string timeText = minsAgo == 1 ? "방금" : $"-{minsAgo - 1}분";
+                Border focusBar = new Border
+                {
+                    Width = 16,
+                    Height = Math.Max(scores[i] * 1.5, 4), // 비율 살짝 조정
+                    Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3B82F6")),
+                    CornerRadius = new CornerRadius(3, 3, 0, 0)
+                };
+                focusGroup.Children.Add(focusVal);
+                focusGroup.Children.Add(focusBar);
 
+                // --- 2. 피로도 바 세트 ---
+                StackPanel fatigueGroup = new StackPanel { VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(2, 0, 0, 0) };
+
+                // 피로도 수치 텍스트
+                TextBlock fatigueVal = new TextBlock
+                {
+                    Text = $"{fatigue[i]}",
+                    FontSize = 9,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F59E0B")),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(0, 0, 0, 2)
+                };
+
+                Border fatigueBar = new Border
+                {
+                    Width = 16,
+                    Height = Math.Max(fatigue[i] * 1.5, 4),
+                    Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F59E0B")),
+                    CornerRadius = new CornerRadius(3, 3, 0, 0)
+                };
+                fatigueGroup.Children.Add(fatigueVal);
+                fatigueGroup.Children.Add(fatigueBar);
+
+                // --- 3. 하단 레이아웃 구성 ---
+                StackPanel barPair = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Bottom };
+                barPair.Children.Add(focusGroup);
+                barPair.Children.Add(fatigueGroup);
+
+                int minsAgo = scores.Count - 1 - i;
                 TextBlock timeLabel = new TextBlock
                 {
-                    Text = timeText,
-                    FontSize = 11,
-                    FontWeight = FontWeights.SemiBold,
+                    Text = minsAgo == 0 ? "방금" : $"-{minsAgo}분",
+                    FontSize = 10,
                     Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#94A3B8")),
                     HorizontalAlignment = HorizontalAlignment.Center,
-                    Margin = new Thickness(0, 8, 0, 0)
+                    Margin = new Thickness(0, 5, 0, 0)
                 };
 
-                StackPanel container = new StackPanel
-                {
-                    Orientation = Orientation.Vertical,
-                    Margin = new Thickness(6, 0, 6, 0),
-                    VerticalAlignment = VerticalAlignment.Bottom
-                };
+                StackPanel column = new StackPanel { Margin = new Thickness(8, 0, 8, 0), VerticalAlignment = VerticalAlignment.Bottom };
+                column.Children.Add(barPair);
+                column.Children.Add(timeLabel);
 
-                container.Children.Add(bar);
-                container.Children.Add(timeLabel);
-                ChartArea.Children.Add(container);
+                ChartArea.Children.Add(column);
             }
         }
     }
