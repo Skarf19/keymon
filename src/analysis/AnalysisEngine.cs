@@ -3,17 +3,25 @@ using System.Collections.Generic;
 
 namespace Keymon
 {
+    // 사용자의 입력 패턴을 통계적(Z-Score, EMA)으로 분석하여 
+    // 실시간 집중도(Focus)와 생체 모방형 피로도(Fatigue)를 산출하는 핵심 엔진입니다.
     public class AnalysisEngine
     {
-        // 1. 상수 (판단 기준)
+        // ---------------------------------------------------------
+        // 1. 시스템 상수 (글로벌 베이스라인)
+        // ---------------------------------------------------------
+        // 사용자의 초기 데이터가 없을 때 기준으로 삼는 전역 평균값
         private const double GlobalAvgKpm = 200.0;
         private const double GlobalAvgEr = 0.05;
         private const double GlobalAvgDt = 100.0;
         private const double GlobalAvgFt = 400.0;
         private const double GlobalAvgMj = 15.0;
-        private const double Alpha = 0.1;
+        private const double Alpha = 0.1; // 지수이동평균(EMA) 반영 비율 (최근 데이터 가중치)
 
-        // 2. 학습된 개인 지표
+        // ---------------------------------------------------------
+        // 2. 개인화 학습 지표 (EMA & Variance)
+        // ---------------------------------------------------------
+        // 사용자의 평소 작업 스타일을 학습한 지수이동평균(EMA) 및 분산(Variance) 데이터
         public double PersonalEmaKpm { get; set; }
         public double PersonalEmaEr { get; set; }
         public double PersonalEmaDt { get; set; }
@@ -26,15 +34,26 @@ namespace Keymon
         public double PersonalVarMj { get; set; }
         public int TotalAccumulatedKeys { get; set; }
 
-        // 3. 현재 결과값
-        public int FocusScore { get; private set; }
-        public int StressScore { get; private set; }
-        public int FocusState { get; private set; }
-        public string StateReason { get; private set; } = "데이터 분석 중...";
+        // 사용자가 자리에서 이탈하지 않고 논리적으로 연속 작업한 시간 (분 단위)
+        public int ContinuousWorkMinutes { get; private set; }
+
+        // ---------------------------------------------------------
+        // 3. 외부 노출용 분석 결과 (모니터링/UI 계층 바인딩용)
+        // ---------------------------------------------------------
+        public int FocusScore { get; private set; }       // 최종 산출된 집중도 점수 (0~100)
+        public int StressScore { get; private set; }      // 오타율 및 거친 마우스 조작 기반 뇌 과부하 수치 (0~100)
+        public double FatigueScore { get; private set; }  // 누적된 인지적/신체적 피로도 수치 (0~100)
+        public int FocusState { get; private set; }       // 현재 집중 상태 (0:휴식, 1:산만, 2:안정, 3:집중, 4:완벽한 몰입)
+        public int FatigueState { get; private set; }     // 현재 피로도 경고 상태 (1:안전, 2:주의, 3:위험)
+        public string StateReason { get; private set; } = "데이터 분석 중..."; // 상태 판별 근거 메시지 (UI 출력용)
         public bool IsFirstAnalysisComplete { get; set; } = false;
 
-        // 4. 데이터 초기화 (사용자가 트레이에서 '초기화'를 선택했을 때 MonitoringService가 호출)
-        // 학습된 모든 개인 베이스라인과 현재 분석 결과를 초기값으로 되돌립니다.
+        // 테스트 및 디버깅용 피로도 누적 배속 (기본값 1.0 = 리얼타임)
+        public double FatigueTimeScale { get; set; } = 1.0;
+
+        // ---------------------------------------------------------
+        // 4. 데이터 초기화
+        // ---------------------------------------------------------
         public void Reset()
         {
             PersonalEmaKpm = 0; PersonalEmaEr = 0; PersonalEmaDt = 0;
@@ -42,18 +61,28 @@ namespace Keymon
             PersonalVarKpm = 0; PersonalVarEr = 0; PersonalVarDt = 0;
             PersonalVarFt = 0; PersonalVarMj = 0;
             TotalAccumulatedKeys = 0;
-            FocusScore = 0; StressScore = 0; FocusState = 0;
+            ContinuousWorkMinutes = 0;
+            FocusScore = 0; StressScore = 0; FatigueScore = 0;
+            FocusState = 0;
+            FatigueState = 1; // 피로도 기본 상태는 1(안전)
             StateReason = "데이터 분석 중...";
             IsFirstAnalysisComplete = false;
         }
 
-        // 5. 실시간 상태 판별 로직
+        // ---------------------------------------------------------
+        // 5. 실시간 상태 판별 로직 (1초 주기 호출)
+        // ---------------------------------------------------------
+        // 즉각적인 유휴(Idle) 상태나 산만함을 감지합니다.
         public void UpdateRealtimeStatus(int currentKpm, int currentMpm, int currentCsr, bool isFirstComplete)
         {
             int apm = currentKpm + currentMpm;
+
+            // 물리적 입력이 기준치 미만일 때 (즉각적인 작업 중단 감지)
             if (apm < 15 && isFirstComplete)
             {
                 FocusScore = 0;
+
+                // 입력은 없는데 창 전환만 많다면 딴짓(산만함)으로 간주
                 if (currentCsr >= 4)
                 {
                     FocusState = 1; // Distracted
@@ -61,63 +90,146 @@ namespace Keymon
                 }
                 else
                 {
-                    FocusState = 0; // Idle
+                    FocusState = 0; // Idle (진정한 휴식 상태)
                     StateReason = $"현재 입력(APM {apm})이 감지되지 않아 작업이 일시 정지된 상태입니다.";
+
+                    // 휴식 중 피로도 미세 회복 (초당)
+                    if (FatigueScore > 0) FatigueScore = Math.Max(0, FatigueScore - (0.1 * FatigueTimeScale));
                 }
+
+                // 입력이 없으므로 스트레스 수치 점진적 하락
                 if (StressScore > 0) StressScore = Math.Max(0, StressScore - 5);
             }
         }
 
-        // 5. 60초 주기 심층 분석 로직
+        // ---------------------------------------------------------
+        // 6. 심층 분석 로직 (60초 주기 호출)
+        // ---------------------------------------------------------
+        // 누적된 데이터를 바탕으로 통계적 분석(Z-Score)을 수행합니다.
         public void PerformDeepAnalysis(int kpm, int mpm, int backspace, int jerk, int csr, double avgDt, double avgFt)
         {
             int apm = kpm + mpm;
-            double currentER = kpm > 0 ? (double)backspace / kpm : 0;
-            double currentGamma = Math.Min(1.0, TotalAccumulatedKeys / 20000.0);
+            double currentER = kpm > 0 ? (double)backspace / kpm : 0; // 오타율(Error Rate)
 
-            // 베이스라인 결정
+            // [1] 학습 데이터 로드 (학습 전이면 글로벌 평균 사용)
             double prevEmaKpm = PersonalEmaKpm == 0 ? GlobalAvgKpm : PersonalEmaKpm;
             double prevEmaEr = PersonalEmaEr == 0 ? GlobalAvgEr : PersonalEmaEr;
             double prevEmaDt = PersonalEmaDt == 0 ? GlobalAvgDt : PersonalEmaDt;
             double prevEmaFt = PersonalEmaFt == 0 ? GlobalAvgFt : PersonalEmaFt;
             double prevEmaMj = PersonalEmaMj == 0 ? GlobalAvgMj : PersonalEmaMj;
 
-            // 표준편차 계산
+            // 데이터 부족 시 표준편차가 0에 수렴하여 Z-Score가 무한대가 되는 현상(ZeroDivision) 방어
             double stdKpm = Math.Max(Math.Sqrt(PersonalVarKpm), 5.0);
             double stdEr = Math.Max(Math.Sqrt(PersonalVarEr), 0.02);
             double stdDt = Math.Max(Math.Sqrt(PersonalVarDt), 10.0);
-            double stdFt = Math.Max(Math.Sqrt(PersonalVarFt), 20.0);
             double stdMj = Math.Max(Math.Sqrt(PersonalVarMj), 2.0);
 
-            // Z-Score 계산
+            // [2] Z-Score(표준화 점수) 산출: 사용자의 '평소 패턴' 대비 현재 상태의 편차 계산
             double zKpm = (kpm - prevEmaKpm) / stdKpm;
             double zEr = (currentER - prevEmaEr) / stdEr;
             double zDt = kpm > 0 ? (avgDt - prevEmaDt) / stdDt : 0;
             double zMj = (jerk - prevEmaMj) / stdMj;
 
-            // 스트레스 및 집중도 점수 계산
+            // [3] 뇌 과부하(StressScore) 계산: 오타율, 거친 마우스 움직임, 키 체공 시간의 비정상적 증가를 가중 합산
             double combinedZ = (0.5 * zEr) + (0.3 * zMj) + (0.2 * zDt);
             StressScore = (int)Math.Clamp(Math.Max(0, combinedZ) * 33, 0, 100);
 
-            // 상태 판별 알고리즘
+            // [4] 파이프라인 실행: 상태 판별 -> 피로도 갱신
             DetermineState(apm, csr, zKpm, zEr, zMj);
+            UpdateFatigue(zKpm);
 
-            // 집중도 최종 점수 계산
+            // [5] 최종 집중도 점수 산출 (페널티 적용)
             double zErPositive = Math.Max(0, zEr);
-            double erPenalty = zErPositive > 1.0 ? Math.Pow(zErPositive, 1.5) * 10 : zErPositive * 5;
+            double erPenalty = zErPositive > 1.0 ? Math.Pow(zErPositive, 1.5) * 10 : zErPositive * 5; // 오타율 비선형 페널티
             double csrPenalty = Math.Pow(csr, 1.5) * 1.5;
             double speedBonus = Math.Clamp((zKpm * 10) + (mpm * 0.1), -20, 25);
-            double rawFocus = 75 + speedBonus - erPenalty - csrPenalty;
-            FocusScore = apm < 15 ? 0 : (int)Math.Clamp(rawFocus, 0, 100);
 
-            // 베이스라인 업데이트
-            if (FocusState == 2 || FocusState == 3)
+            // 피로도가 높을수록 점수 천장 강제 하향 조정
+            double fatiguePenalty = (FatigueScore / 100.0) * 20;
+
+            double rawFocus = 75 + speedBonus - erPenalty - csrPenalty - fatiguePenalty;
+
+            // [6] UI 차트 요동침 방지 (EMA 기반 점수 스무딩)
+            int targetFocusScore = apm < 15 ? 0 : (int)Math.Clamp(rawFocus, 0, 100);
+
+            if (!IsFirstAnalysisComplete || FocusScore == 0)
+            {
+                // 초기 진입 및 휴식 상태에서 복귀 시에는 즉각 반응
+                FocusScore = targetFocusScore;
+            }
+            else
+            {
+                // 이전 점수 30%, 새로운 타겟 점수 70% 비중으로 부드러운 차트 곡선 유도
+                FocusScore = (int)((FocusScore * 0.3) + (targetFocusScore * 0.7));
+            }
+
+            // [7] 베이스라인 업데이트: 정상적인 작업 흐름(Level 2 이상)일 때만 학습하여 데이터 오염 방지
+            if (FocusState >= 2)
             {
                 UpdateBaseline(kpm, currentER, avgDt, avgFt, jerk, prevEmaKpm, prevEmaEr, prevEmaDt, prevEmaFt, prevEmaMj);
             }
             IsFirstAnalysisComplete = true;
         }
 
+        // ---------------------------------------------------------
+        // 7. 생체 모방형 피로도 로직 (울트라디안 리듬 반영)
+        // ---------------------------------------------------------
+        private void UpdateFatigue(double zKpm)
+        {
+            if (FocusState == 0) // 유휴 상태 (빠른 회복)
+            {
+                // 짧은 휴식으로도 뇌가 빠르게 회복되는 현실적 메커니즘 (TimeScale로 디버깅 배속 지원)
+                double recoveryAmount = (2.0 + (FatigueScore * 0.1)) * FatigueTimeScale;
+                FatigueScore = Math.Max(0, FatigueScore - recoveryAmount);
+
+                // 휴식 시 논리적 연속 작업(스트레스) 시간 대폭 차감
+                ContinuousWorkMinutes = Math.Max(0, ContinuousWorkMinutes - (int)(5 * FatigueTimeScale));
+            }
+            else // 작업 중 (가중 누적)
+            {
+                ContinuousWorkMinutes += (int)(1 * FatigueTimeScale);
+
+                // Track A: 스트레스(과부하)가 높을수록 가중치 부여
+                double stressWeight = (StressScore / 100.0) * 3.0;
+                // Track B: 평소보다 타수가 비정상적으로 느려지면(체력 저하) 가중치 부여
+                double slownessWeight = zKpm < -1.0 ? Math.Abs(zKpm) * 0.5 : 0;
+                // Track C: 고도 몰입(오버클럭) 시 뇌 자원 극대화 소모로 인한 막대한 페널티 부여
+                double focusWeight = (FocusState == 4) ? 1.5 : (FocusState == 3 ? 0.5 : 0);
+
+                // 120분 돌파 시 울트라디안 리듬 한계 도달로 인한 피로 가속(곱연산) 적용
+                double durationMultiplier = ContinuousWorkMinutes >= 120
+                    ? 1.0 + ((ContinuousWorkMinutes - 120) / 60.0)
+                    : 1.0;
+
+                double totalAccumulation = (1.0 + stressWeight + slownessWeight + focusWeight) * durationMultiplier;
+
+                // 최종 누적량에 테스트용 배속 적용
+                FatigueScore = Math.Min(100, FatigueScore + (totalAccumulation * FatigueTimeScale));
+            }
+
+            // 피로도 임계치에 따른 상태(FatigueState) 세팅
+            if (FatigueScore >= 71) // [3단계: 위험] 인지 능력 한계 도달 (Ultradian Rhythm)
+            {
+                FatigueState = 3;
+                StateReason = "⚠️ 위험: 극심한 피로가 감지되었습니다. 즉시 휴식이 필요합니다.";
+            }
+            else if (FatigueScore >= 31) // [2단계: 주의] 경계심 감소 시작 (Vigilance Decrement)
+            {
+                FatigueState = 2;
+                // DetermineState에서 설정한 진단 문구에 경고를 덧붙임
+                StateReason += " (🔸주의: 피로가 쌓이기 시작했습니다)";
+            }
+            else // [1단계: 안전] 쾌적 상태
+            {
+                FatigueState = 1;
+                // 평소 상태 사유는 DetermineState에서 정한 진단명 유지
+            }
+        }
+
+        // ---------------------------------------------------------
+        // 8. 5단계 몰입 상태 판별 로직
+        // ---------------------------------------------------------
+        // Z-Score 및 절대 기준을 종합하여 현재 사용자의 상태를 판별합니다.
         private void DetermineState(int apm, int csr, double zKpm, double zEr, double zMj)
         {
             if (apm < 15)
@@ -127,33 +239,47 @@ namespace Keymon
             }
             else if (csr >= 10 || zEr > 1.0 || zMj > 1.0)
             {
-                FocusState = 1;
+                FocusState = 1; // 방해 요소(멀티태스킹, 잦은 오타, 마우스 튐)가 기준치 초과
                 if (csr >= 10) StateReason = "잦은 창 전환으로 인한 산만함.";
-                else if (zEr > 1.0) StateReason = "비정상적인 오타율 급증.";
+                else if (zEr > 1.0) StateReason = "비정상적인 오타율 급증(과부하).";
                 else StateReason = "거친 마우스 움직임 감지.";
             }
             else if ((zKpm > 1.5 || apm >= 80) && zEr <= 0 && csr <= 2 && apm >= 50)
             {
-                FocusState = 4; StateReason = "완벽한 몰입 상태!";
+                FocusState = 4; // 평소 대비 속도 극대화, 오타 0, 딴짓 없음 (Zone 상태)
+                StateReason = "완벽한 몰입 상태!";
             }
             else if ((zKpm > 0.5 || apm >= 40) && csr <= 5 && apm >= 30)
             {
-                FocusState = 3; StateReason = "안정적이고 빠른 작업 페이스 유지 중.";
+                FocusState = 3; // 긍정적인 가속 상태
+                StateReason = "안정적이고 빠른 작업 페이스 유지 중.";
             }
             else
             {
-                FocusState = 2; StateReason = "평소 패턴과 일치하는 안정적인 상태.";
+                FocusState = 2; // 페널티도 보너스도 없는 평소 베이스라인 일치 상태
+                StateReason = "평소 패턴과 일치하는 안정적인 상태.";
             }
         }
 
+        // ---------------------------------------------------------
+        // 9. 개인화 데이터 학습 로직 (EMA 및 분산 업데이트)
+        // ---------------------------------------------------------
         private void UpdateBaseline(int kpm, double er, double dt, double ft, int jerk, double pKpm, double pEr, double pDt, double pFt, double pMj)
         {
+            // 방어 로직 (Outlier Capping) 
+            // - 물리적 한계를 초과하는 노이즈(고양이 난입, 무거운 물체 눌림 등)가 
+            //   개인화 모델을 오염시키는 것을 방지합니다.
+            kpm = Math.Min(kpm, 600);   // 아무리 빨라도 분당 600타를 초과하는 데이터는 잘라냄
+            jerk = Math.Min(jerk, 100); // 마우스 튐이 비정상적으로 높을 경우 제한
+
+            // EMA(지수이동평균) 업데이트: 과거 데이터(90%) + 현재 데이터(10%)
             PersonalEmaKpm = (Alpha * kpm) + ((1 - Alpha) * pKpm);
             PersonalEmaEr = (Alpha * er) + ((1 - Alpha) * pEr);
             PersonalEmaDt = (Alpha * dt) + ((1 - Alpha) * pDt);
             PersonalEmaFt = (Alpha * ft) + ((1 - Alpha) * pFt);
             PersonalEmaMj = (Alpha * jerk) + ((1 - Alpha) * pMj);
 
+            // Z-Score 산출용 분산(Variance) 업데이트
             PersonalVarKpm = (1 - Alpha) * (PersonalVarKpm + Alpha * Math.Pow(kpm - pKpm, 2));
             PersonalVarEr = (1 - Alpha) * (PersonalVarEr + Alpha * Math.Pow(er - pEr, 2));
             PersonalVarDt = (1 - Alpha) * (PersonalVarDt + Alpha * Math.Pow(dt - pDt, 2));

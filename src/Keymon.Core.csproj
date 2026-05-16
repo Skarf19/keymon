@@ -33,6 +33,7 @@
   <ItemGroup>
     <PackageReference Include="H.NotifyIcon.Wpf" Version="2.4.1" />
     <PackageReference Include="SharpHook" Version="7.1.1" />
+    <PackageReference Include="System.Drawing.Common" Version="10.0.7" />
   </ItemGroup>
 
   <ItemGroup>
@@ -43,11 +44,21 @@
 
   <ItemGroup>
     <!-- .csproj가 src/에 있으므로 bin/unity는 한 단계 위(../bin/unity)입니다. -->
-    <Content Include="..\bin\unity\**\*"
-             Exclude="..\bin\unity\KeyboardCat_BurstDebugInformation_DoNotShip\**\*">
+    <Content Include="..\bin\unity\**\*" Exclude="..\bin\unity\KeyboardCat_BurstDebugInformation_DoNotShip\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>unity\%(RecursiveDir)%(Filename)%(Extension)</Link>
     </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="bin\Debug\net10.0-windows\Assets\**" />
+    <EmbeddedResource Remove="bin\Debug\net10.0-windows\Assets\**" />
+    <None Remove="bin\Debug\net10.0-windows\Assets\**" />
+    <Page Remove="bin\Debug\net10.0-windows\Assets\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="bin\Debug\net10.0-windows\" />
   </ItemGroup>
 
 </Project>

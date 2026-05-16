@@ -23,6 +23,7 @@ namespace Keymon
         private int _tickCounter;
         private readonly List<int> _historyScores = new();
         private readonly List<int> _historyStates = new();
+        private readonly List<int> _historyFatigue = new();
 
         // 매 틱마다 갱신되는 최신 스냅샷을 캐시합니다.
         private MetricSnapshot _lastSnapshot = new(0, 0, 0, 0, 0, 0, 0);
@@ -45,11 +46,12 @@ namespace Keymon
 
         public void Stop() => _timer?.Stop();
 
-        public void Reset()
+        public void Reset() // 리셋
         {
             _tickCounter = 0;
             _historyScores.Clear();
             _historyStates.Clear();
+            _historyFatigue.Clear();
             _lastSnapshot = new(0, 0, 0, 0, 0, 0, 0);
             _collector.Reset();
             _engine.Reset();
@@ -95,9 +97,20 @@ namespace Keymon
 
         private void UpdateHistory()
         {
+            // 집중도 기록
             _historyScores.Add(_engine.FocusScore);
             _historyStates.Add(_engine.FocusState);
-            if (_historyScores.Count > 10) { _historyScores.RemoveAt(0); _historyStates.RemoveAt(0); }
+
+            // 피로도 기록 (차트 표시를 위해 정수형으로 변환하여 저장)
+            _historyFatigue.Add((int)_engine.FatigueScore);
+
+            // 10개가 넘으면 가장 오래된 데이터 삭제 (최근 10분 유지)
+            if (_historyScores.Count > 10)
+            {
+                _historyScores.RemoveAt(0);
+                _historyStates.RemoveAt(0);
+                _historyFatigue.RemoveAt(0);
+            }
         }
 
         private void UpdateTrayTooltip()
@@ -110,6 +123,7 @@ namespace Keymon
             string[] stateNames = { "Idle ☕", "Distracted 😵‍💫", "Engaged 🙂", "Focused 🤓", "Deep Focus 🔥" };
             string stateText = stateNames[Math.Clamp(_engine.FocusState, 0, 4)];
             _tray.UpdateTooltip($"🎯 {stateText} ({_engine.FocusScore}%)\nKPM: {_lastSnapshot.Kpm} | 창 전환: {_lastSnapshot.ContextSwitchCount}회");
+            _tray.UpdateAnimationByState(_engine.FocusState);
         }
 
         // ── ISessionData 구현부 ──────────────────────────────────────────────────
@@ -117,6 +131,7 @@ namespace Keymon
         public int RemainingSeconds => 60 - _tickCounter;
         public int FocusScore => _engine.FocusScore;
         public int StressScore => _engine.StressScore;
+        public double FatigueScore => _engine.FatigueScore;
         public int CurrentKpm => _lastSnapshot.Kpm;
         public int CurrentMpm => _lastSnapshot.Mpm;
         public int CurrentApm => _lastSnapshot.Kpm + _lastSnapshot.Mpm;
@@ -124,7 +139,9 @@ namespace Keymon
         public int JerkCount => _lastSnapshot.JerkCount;
         public int ContextSwitchCount => _lastSnapshot.ContextSwitchCount;
         public int FocusState => _engine.FocusState;
+        public int FatigueState => _engine.FatigueState;
         public string StateReason => _engine.StateReason;
         public List<int> HistoryScores => new List<int>(_historyScores);
+        public List<int> HistoryFatigue => new List<int>(_historyFatigue);
     }
 }
