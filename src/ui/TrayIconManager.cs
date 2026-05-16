@@ -21,6 +21,7 @@ namespace Keymon
         private readonly Dictionary<int, List<Icon>> _animationGroups = new();
         private int _currentAnimationNum = 1;
         private int _currentFrameIdx = 0;
+        private int _transitionDelayCounter = 0;
 
         public Action? OnShowDashboard;
         public Action? OnResetData;
@@ -53,12 +54,12 @@ namespace Keymon
 
         private void LoadAllAnimationFrames()
         {
-            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-
-            for (int animNum = 1; animNum <= 3; animNum++)
+            string exeDir = AppDomain.CurrentDomain.BaseDirectory;
+            string baseDir = Path.GetFullPath(Path.Combine(exeDir, @"..\..\..\"));
+            for (int animNum = 1; animNum <= 5; animNum++)
             {
                 var frames = new List<Icon>();
-                for (int i = 0; i < 12; i++)
+                for (int i = 0; i < 13; i++)
                 {
                     string path = Path.Combine(baseDir, "Assets", $"Anim{animNum}", $"{i}.png");
 
@@ -85,19 +86,40 @@ namespace Keymon
         private void OnAnimationTick(object? sender, EventArgs e)
         {
             if (_notifyIcon == null || !_animationGroups.ContainsKey(_currentAnimationNum)) return;
-
             var currentSet = _animationGroups[_currentAnimationNum];
             _notifyIcon.Icon = currentSet[_currentFrameIdx];
-            _currentFrameIdx = (_currentFrameIdx + 1) % currentSet.Count;
+            if (_currentFrameIdx == 0)
+            {
+                _transitionDelayCounter++;
+                if (_transitionDelayCounter < 24)
+                {
+                    return;
+                }
+                _transitionDelayCounter = 0;
+            }
+            _currentFrameIdx++;
+            if (_currentFrameIdx >= currentSet.Count)
+            {
+                _currentFrameIdx = 1;
+            }
         }
 
         public void UpdateAnimationByState(int focusState)
         {
-            int nextAnimNum = focusState switch { 0 => 1, 1 or 2 or 3 => 2, 4 => 3, _ => 1 };
+            int nextAnimNum = focusState switch
+            {
+                0 => 1,
+                1 => 2,
+                2 => 3,
+                3 => 4,
+                4 => 5,
+                _ => 1
+            };
             if (_currentAnimationNum != nextAnimNum)
             {
                 _currentAnimationNum = nextAnimNum;
                 _currentFrameIdx = 0;
+                _transitionDelayCounter = 0;
             }
         }
 
