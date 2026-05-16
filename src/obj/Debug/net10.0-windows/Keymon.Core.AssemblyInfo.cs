@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Keymon.Core")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+deb72c249f1adcd2ba45a6719b4f29607bb579cb")]
 [assembly: System.Reflection.AssemblyProductAttribute("Keymon.Core")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Keymon.Core")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

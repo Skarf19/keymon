@@ -286,11 +286,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\ccpin\\OneDrive\\Desktop\\keymon-develop\\src\\Keymon.Core.csproj",
+      "projectUniqueName": "C:\\Users\\ccpin\\OneDrive\\Documents\\GitHub\\keymon\\src\\Keymon.Core.csproj",
       "projectName": "Keymon.Core",
-      "projectPath": "C:\\Users\\ccpin\\OneDrive\\Desktop\\keymon-develop\\src\\Keymon.Core.csproj",
+      "projectPath": "C:\\Users\\ccpin\\OneDrive\\Documents\\GitHub\\keymon\\src\\Keymon.Core.csproj",
       "packagesPath": "C:\\Users\\ccpin\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\ccpin\\OneDrive\\Desktop\\keymon-develop\\src\\obj\\",
+      "outputPath": "C:\\Users\\ccpin\\OneDrive\\Documents\\GitHub\\keymon\\src\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\ccpin\\AppData\\Roaming\\NuGet\\NuGet.Config",

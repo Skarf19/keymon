@@ -54,8 +54,8 @@ namespace Keymon
 
         private void LoadAllAnimationFrames()
         {
-            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-
+            string exeDir = AppDomain.CurrentDomain.BaseDirectory;
+            string baseDir = Path.GetFullPath(Path.Combine(exeDir, @"..\..\..\"));
             for (int animNum = 1; animNum <= 5; animNum++)
             {
                 var frames = new List<Icon>();
