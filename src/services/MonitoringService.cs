@@ -1,52 +1,77 @@
 using System;
 using System.Collections.Generic;
 using System.Windows.Threading;
+using Microsoft.Win32;            // 절전 모드 대응
 
 namespace Keymon
 {
     // MonitoringService의 역할:
-    //   - 1초마다 실행되는 타이머 루프를 소유합니다.
-    //   - MetricCollector에서 스냅샷을 가져와 AnalysisEngine에 전달합니다.
-    //   - 60초마다 심층 분석을 트리거합니다.
-    //   - 분석 결과를 UnityBridge와 TrayIconManager에 전달합니다.
-    //   - ISessionData를 구현하여 DashboardWindow에 데이터를 제공합니다.
+    //   - 1초마다 실행되는 타이머 루프 소유
+    //   - 절전 모드 진입/해제 감지 및 대응
+    //   - PersistenceService를 통한 데이터 Save/Load 트리거
     public class MonitoringService : ISessionData
     {
         private readonly MetricCollector _collector;
         private readonly AnalysisEngine _engine;
         private readonly UnityBridge _unity;
         private readonly TrayIconManager _tray;
+        private readonly PersistenceService _persistence; // 분리된 영속성 서비스
 
-        // DispatcherTimer: WPF에서 UI 스레드에서 주기적으로 코드를 실행하는 타이머입니다.
         private DispatcherTimer? _timer;
-
         private int _tickCounter;
         private readonly List<int> _historyScores = new();
         private readonly List<int> _historyStates = new();
         private readonly List<int> _historyFatigue = new();
-
-        // 매 틱마다 갱신되는 최신 스냅샷을 캐시합니다.
         private MetricSnapshot _lastSnapshot = new(0, 0, 0, 0, 0, 0, 0);
 
-        // 생성자: 필요한 의존 객체들을 외부에서 주입받습니다 (의존성 주입 패턴).
-        public MonitoringService(MetricCollector collector, AnalysisEngine engine, UnityBridge unity, TrayIconManager tray)
+        // 생성자: 모든 의존성을 주입받고 초기 데이터를 불러옵니다.
+        public MonitoringService(MetricCollector collector, AnalysisEngine engine, UnityBridge unity, TrayIconManager tray, PersistenceService persistence)
         {
             _collector = collector;
             _engine = engine;
             _unity = unity;
             _tray = tray;
+            _persistence = persistence;
+
+            // 서비스 생성 시 자동으로 데이터 복원
+            _persistence.Load(_engine, _collector);
         }
 
         public void Start()
         {
+            // 전원 상태 변경 감지 구독
+            SystemEvents.PowerModeChanged += OnPowerModeChanged;
+
             _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _timer.Tick += OnTick;
             _timer.Start();
         }
 
-        public void Stop() => _timer?.Stop();
+        public void Stop()
+        {
+            _timer?.Stop();
+            SystemEvents.PowerModeChanged -= OnPowerModeChanged;
 
-        public void Reset() // 리셋
+            // 앱 종료 전 안전하게 데이터 저장
+            _persistence.Save(_engine, _collector);
+        }
+
+        // --- 절전 모드 대응 로직 ---
+        private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
+        {
+            if (e.Mode == PowerModes.Suspend) // 덮개를 닫거나 절전모드 진입 시
+            {
+                _timer?.Stop();
+                _persistence.Save(_engine, _collector); // 중간 저장
+            }
+            else if (e.Mode == PowerModes.Resume) // 덮개를 열거나 깨어날 시
+            {
+                _tickCounter = 0; // 타이머 꼬임 방지
+                _timer?.Start();
+            }
+        }
+
+        public void Reset()
         {
             _tickCounter = 0;
             _historyScores.Clear();
@@ -57,7 +82,6 @@ namespace Keymon
             _engine.Reset();
         }
 
-        // 1초마다 DispatcherTimer가 자동으로 호출합니다.
         private void OnTick(object? sender, EventArgs e)
         {
             DateTime now = DateTime.Now;
@@ -97,14 +121,10 @@ namespace Keymon
 
         private void UpdateHistory()
         {
-            // 집중도 기록
             _historyScores.Add(_engine.FocusScore);
             _historyStates.Add(_engine.FocusState);
-
-            // 피로도 기록 (차트 표시를 위해 정수형으로 변환하여 저장)
             _historyFatigue.Add((int)_engine.FatigueScore);
 
-            // 10개가 넘으면 가장 오래된 데이터 삭제 (최근 10분 유지)
             if (_historyScores.Count > 10)
             {
                 _historyScores.RemoveAt(0);
