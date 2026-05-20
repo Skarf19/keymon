@@ -31,10 +31,9 @@ namespace Keymon
             _persistence = new PersistenceService();
             _unity = new UnityBridge();
             _tray = new TrayIconManager();
-            _monitoring = new MonitoringService(_collector, _engine, _unity, _tray);
 
-            // 2. 이전 세션 데이터를 로드합니다.
-            _persistence.Load(_engine, _collector);
+            // 2. MonitoringService에 persistence까지 모두 주입합니다!
+            _monitoring = new MonitoringService(_collector, _engine, _unity, _tray, _persistence);
 
             // 3. MetricCollector가 InputHookManager의 이벤트를 구독하게 합니다.
             _collector.Subscribe(_hookManager);
@@ -64,7 +63,7 @@ namespace Keymon
             _hookManager?.Stop();
             _tray?.Dispose();
             _unity?.Dispose();
-            _persistence?.Save(_engine!, _collector!);
+
             base.OnExit(e);
             Environment.Exit(0);
         }

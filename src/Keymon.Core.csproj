@@ -1,172 +1,34 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <UseWPF>true</UseWPF>
-  </PropertyGroup>
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net10.0-windows</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<UseWPF>true</UseWPF>
+	</PropertyGroup>
 
-  <!--
-    .cs 파일은 SDK가 src/ 하위 모든 폴더에서 자동으로 검색합니다.
-    별도로 <Compile Include>를 나열할 필요가 없습니다.
+	<ItemGroup>
+		<PackageReference Include="H.NotifyIcon.Wpf" Version="2.4.1" />
+		<PackageReference Include="SharpHook" Version="7.1.1" />
+		<PackageReference Include="System.Drawing.Common" Version="10.0.7" />
+	</ItemGroup>
 
-    폴더 구조:
-      input/     - Layer 1: 입력 캡처 (InputHookManager, MetricCollector)
-      analysis/  - Layer 2: 데이터 분석 (AnalysisEngine, MetricSnapshot)
-      services/  - Layer 3: 세션 조율 (MonitoringService, PersistenceService, ISessionData)
-      ui/        - Layer 4: 프레젠테이션 (DashboardWindow, TrayIconManager, UnityBridge)
-  -->
+	<ItemGroup>
+		<None Update="Assets\**\*">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="icon.ico">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
 
-  <!--
-    XAML 파일(.xaml)도 SDK가 자동으로 검색합니다.
-    App.xaml → ApplicationDefinition (Application을 상속하므로 자동 감지)
-    ui/*.xaml → Page (자동 감지)
-    별도 선언 불필요.
-  -->
-
-  <ItemGroup>
-    <None Remove="icon.ico" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="H.NotifyIcon.Wpf" Version="2.4.1" />
-    <PackageReference Include="SharpHook" Version="7.1.1" />
-    <PackageReference Include="System.Drawing.Common" Version="10.0.7" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim1\0.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim1\1.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim1\10.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim1\11.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim1\2.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim1\3.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim1\4.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim1\5.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim1\6.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim1\7.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim1\8.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim1\9.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim2\0.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim2\1.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim2\10.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim2\11.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim2\2.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim2\3.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim2\4.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim2\5.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim2\6.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim2\7.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim2\8.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim2\9.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim3\0.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim3\1.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim3\10.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim3\11.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim3\2.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim3\3.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim3\4.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim3\5.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim3\6.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim3\7.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim3\8.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="bin\Debug\net10.0-windows\Assets\Anim3\9.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="icon.ico">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-
-  <ItemGroup>
-    <!-- .csproj가 src/에 있으므로 bin/unity는 한 단계 위(../bin/unity)입니다. -->
-    <Content Include="..\bin\unity\**\*" Exclude="..\bin\unity\KeyboardCat_BurstDebugInformation_DoNotShip\**\*">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Link>unity\%(RecursiveDir)%(Filename)%(Extension)</Link>
-    </Content>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Compile Remove="bin\Debug\net10.0-windows\Assets\**" />
-    <EmbeddedResource Remove="bin\Debug\net10.0-windows\Assets\**" />
-    <None Remove="bin\Debug\net10.0-windows\Assets\**" />
-    <Page Remove="bin\Debug\net10.0-windows\Assets\**" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="bin\Debug\net10.0-windows\" />
-  </ItemGroup>
+	<ItemGroup>
+		<!-- .csproj가 src/에 있으므로 bin/unity는 한 단계 위(../bin/unity)입니다. -->
+		<Content Include="..\bin\unity\**\*" Exclude="..\bin\unity\KeyboardCat_BurstDebugInformation_DoNotShip\**\*">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<Link>unity\%(RecursiveDir)%(Filename)%(Extension)</Link>
+		</Content>
+	</ItemGroup>
 
 </Project>
