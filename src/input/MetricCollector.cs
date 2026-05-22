@@ -270,5 +270,64 @@ namespace Keymon
                 _lastWindowHandle = currentWindow;
             }
         }
+
+        public void OffsetTime(TimeSpan offset)
+        {
+            // 1. 키보드 & Backspace 관련 데이터 밀어주기
+            lock (_keyTimes)
+            {
+                ShiftQueueInPlace(_keyTimes, offset);
+
+                // Dictionary 안에 기록된 '현재 누르고 있는 키'의 시간도 밀어줍니다.
+                var activeKeys = new List<KeyCode>(_pressedKeys.Keys);
+                foreach (var key in activeKeys)
+                {
+                    _pressedKeys[key] += offset;
+                }
+
+                if (_lastKeyReleaseTime != DateTime.MinValue)
+                    _lastKeyReleaseTime += offset;
+            }
+
+            lock (_backspaceTimes)
+            {
+                ShiftQueueInPlace(_backspaceTimes, offset);
+            }
+
+            // 2. 마우스 & Jerk 관련 데이터 밀어주기
+            lock (_mouseTimes)
+            {
+                ShiftQueueInPlace(_mouseTimes, offset);
+            }
+
+            lock (_jerkTimes)
+            {
+                ShiftQueueInPlace(_jerkTimes, offset);
+            }
+
+            // (임시 큐도 밀어줍니다)
+            ShiftQueueInPlace(_mouseTurnTimes, offset);
+
+            if (_lastMouseTime != DateTime.MinValue)
+                _lastMouseTime += offset;
+
+            // 3. 창 전환 데이터 밀어주기
+            lock (_contextSwitchTimes)
+            {
+                ShiftQueueInPlace(_contextSwitchTimes, offset);
+            }
+        }
+
+        // 큐의 락(lock)을 유지하면서 내부 타임스탬프만 안전하게 갱신합니다.
+        private void ShiftQueueInPlace(Queue<DateTime> queue, TimeSpan offset)
+        {
+            int count = queue.Count;
+            // 큐에 들어있는 개수만큼만 반복해서 빼고(Dequeue), 시간 더해서 다시 넣습니다(Enqueue).
+            for (int i = 0; i < count; i++)
+            {
+                DateTime oldTime = queue.Dequeue();
+                queue.Enqueue(oldTime + offset);
+            }
+        }
     }
 }
