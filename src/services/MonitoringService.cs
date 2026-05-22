@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Windows.Threading;
+using System.Windows;
 using Microsoft.Win32;            // 절전 모드 대응
 
 namespace Keymon
@@ -19,6 +20,7 @@ namespace Keymon
 
         private DispatcherTimer? _timer;
         private int _tickCounter;
+        private DateTime _inactiveStartTime;
         private readonly List<int> _historyScores = new();
         private readonly List<int> _historyStates = new();
         private readonly List<int> _historyFatigue = new();
@@ -39,8 +41,9 @@ namespace Keymon
 
         public void Start()
         {
-            // 전원 상태 변경 감지 구독
+            // 전원(절전) 및 세션(잠금) 상태 변경 감지 모두 구독
             SystemEvents.PowerModeChanged += OnPowerModeChanged;
+            SystemEvents.SessionSwitch += OnSessionSwitch;
 
             _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _timer.Tick += OnTick;
@@ -51,6 +54,7 @@ namespace Keymon
         {
             _timer?.Stop();
             SystemEvents.PowerModeChanged -= OnPowerModeChanged;
+            SystemEvents.SessionSwitch -= OnSessionSwitch;
 
             // 앱 종료 전 안전하게 데이터 저장
             _persistence.Save(_engine, _collector);
@@ -59,16 +63,43 @@ namespace Keymon
         // --- 절전 모드 대응 로직 ---
         private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
         {
-            if (e.Mode == PowerModes.Suspend) // 덮개를 닫거나 절전모드 진입 시
+            if (e.Mode == PowerModes.Suspend) HandleSystemInactive();
+            else if (e.Mode == PowerModes.Resume) HandleSystemActive();
+        }
+
+        private void OnSessionSwitch(object sender, SessionSwitchEventArgs e)
+        {
+            if (e.Reason == SessionSwitchReason.SessionLock) HandleSystemInactive();
+            else if (e.Reason == SessionSwitchReason.SessionUnlock) HandleSystemActive();
+        }
+
+        // 자리 비움 (절전, 잠금): 시간을 멈추고 현재 상태를 보존
+        private void HandleSystemInactive()
+        {
+            // UI 메인 스레드에게 안전하게 실행해달라고 위임합니다.
+            Application.Current.Dispatcher.Invoke(() =>
             {
                 _timer?.Stop();
-                _persistence.Save(_engine, _collector); // 중간 저장
-            }
-            else if (e.Mode == PowerModes.Resume) // 덮개를 열거나 깨어날 시
+                _inactiveStartTime = DateTime.Now;
+                _persistence.Save(_engine, _collector);
+            });
+        }
+
+        // 복귀 (깨어남, 잠금 해제): 멈췄던 시간을 그대로 다시 재생
+        private void HandleSystemActive()
+        {
+            Application.Current.Dispatcher.Invoke(() =>
             {
-                _tickCounter = 0; // 타이머 꼬임 방지
+                if (_inactiveStartTime != default)
+                {
+                    TimeSpan sleepDuration = DateTime.Now - _inactiveStartTime;
+                    _collector.OffsetTime(sleepDuration);
+
+                    _inactiveStartTime = default;
+                }
+
                 _timer?.Start();
-            }
+            });
         }
 
         public void Reset()
