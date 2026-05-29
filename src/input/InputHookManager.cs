@@ -1,4 +1,5 @@
 using SharpHook;
+using SharpHook.Native;
 using System;
 using System.Threading.Tasks;
 
@@ -14,6 +15,9 @@ namespace Keymon
         public event EventHandler<MouseHookEventArgs>? MousePressed;
         public event EventHandler<MouseHookEventArgs>? MouseMoved;
 
+        // 마우스 휠 이벤트 선언
+        public event EventHandler<MouseWheelHookEventArgs>? MouseWheel;
+
         public void Start()
         {
             if (_globalHook != null) return;
@@ -26,7 +30,9 @@ namespace Keymon
             _globalHook.MousePressed += (s, e) => MousePressed?.Invoke(this, e);
             _globalHook.MouseMoved += (s, e) => MouseMoved?.Invoke(this, e);
 
-            // 비동기로 실행
+            // 휠 이벤트를 밖으로 토스 👇👇
+            _globalHook.MouseWheel += (s, e) => MouseWheel?.Invoke(this, e);
+
             Task.Run(() => _globalHook.Run());
         }
 

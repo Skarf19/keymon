@@ -37,6 +37,11 @@ namespace Keymon
                 engine.PersonalEmaMj = data.PersonalEmaMj;
                 engine.PersonalVarMj = data.PersonalVarMj;
                 engine.TotalAccumulatedKeys = data.TotalAccumulatedKeys;
+
+                // 피로도 및 연속 작업 시간 복구
+                engine.FatigueScore = data.FatigueScore;
+                engine.ContinuousWorkMinutes = data.ContinuousWorkMinutes;
+  
             }
             catch (Exception ex)
             {
@@ -64,7 +69,11 @@ namespace Keymon
                     PersonalVarDt = engine.PersonalVarDt,
                     PersonalVarFt = engine.PersonalVarFt,
                     PersonalEmaMj = engine.PersonalEmaMj,
-                    PersonalVarMj = engine.PersonalVarMj
+                    PersonalVarMj = engine.PersonalVarMj,
+
+                    // 💡 추가됨: 피로도 및 연속 작업 시간 저장
+                    FatigueScore = engine.FatigueScore,
+                    ContinuousWorkMinutes = engine.ContinuousWorkMinutes
                 };
 
                 File.WriteAllText(FilePath, JsonSerializer.Serialize(data));
@@ -93,6 +102,8 @@ namespace Keymon
             public double PersonalVarFt { get; set; }
             public double PersonalEmaMj { get; set; }
             public double PersonalVarMj { get; set; }
+            public double FatigueScore { get; set; }
+            public int ContinuousWorkMinutes { get; set; }
         }
     }
 }

@@ -16,7 +16,7 @@ namespace Keymon
         private readonly AnalysisEngine _engine;
         private readonly UnityBridge _unity;
         private readonly TrayIconManager _tray;
-        private readonly PersistenceService _persistence; // 분리된 영속성 서비스
+        private readonly PersistenceService _persistence;
 
         private DispatcherTimer? _timer;
         private int _tickCounter;
@@ -24,9 +24,9 @@ namespace Keymon
         private readonly List<int> _historyScores = new();
         private readonly List<int> _historyStates = new();
         private readonly List<int> _historyFatigue = new();
-        private MetricSnapshot _lastSnapshot = new(0, 0, 0, 0, 0, 0, 0);
 
-        // 생성자: 모든 의존성을 주입받고 초기 데이터를 불러옵니다.
+        private MetricSnapshot _lastSnapshot = new(0, 0, 0, 0, 0, 0, 0, 0, 0);
+
         public MonitoringService(MetricCollector collector, AnalysisEngine engine, UnityBridge unity, TrayIconManager tray, PersistenceService persistence)
         {
             _collector = collector;
@@ -94,10 +94,8 @@ namespace Keymon
                 {
                     TimeSpan sleepDuration = DateTime.Now - _inactiveStartTime;
                     _collector.OffsetTime(sleepDuration);
-
                     _inactiveStartTime = default;
                 }
-
                 _timer?.Start();
             });
         }
@@ -108,7 +106,8 @@ namespace Keymon
             _historyScores.Clear();
             _historyStates.Clear();
             _historyFatigue.Clear();
-            _lastSnapshot = new(0, 0, 0, 0, 0, 0, 0);
+
+            _lastSnapshot = new(0, 0, 0, 0, 0, 0, 0, 0, 0);
             _collector.Reset();
             _engine.Reset();
         }
@@ -123,7 +122,7 @@ namespace Keymon
 
             _engine.UpdateRealtimeStatus(
                 _lastSnapshot.Kpm,
-                _lastSnapshot.Mpm,
+                _lastSnapshot.Mpm + _lastSnapshot.ScrollCount,
                 _lastSnapshot.ContextSwitchCount,
                 _engine.IsFirstAnalysisComplete
             );
@@ -135,10 +134,16 @@ namespace Keymon
                 double avgDt = _lastSnapshot.AvgDwellTime > 0 ? _lastSnapshot.AvgDwellTime : _engine.PersonalEmaDt;
                 double avgFt = _lastSnapshot.AvgFlightTime > 0 ? _lastSnapshot.AvgFlightTime : _engine.PersonalEmaFt;
 
+                // 💡 수정 3: 매개변수 4번째 자리에 _lastSnapshot.MaxConsecutiveBackspaces 를 추가합니다!
                 _engine.PerformDeepAnalysis(
-                    _lastSnapshot.Kpm, _lastSnapshot.Mpm,
-                    _lastSnapshot.BackspaceCount, _lastSnapshot.JerkCount,
-                    _lastSnapshot.ContextSwitchCount, avgDt, avgFt
+                    _lastSnapshot.Kpm,
+                    _lastSnapshot.Mpm + _lastSnapshot.ScrollCount,
+                    _lastSnapshot.BackspaceCount,
+                    _lastSnapshot.MaxConsecutiveBackspaces, // 👈 추가된 부분!
+                    _lastSnapshot.JerkCount,
+                    _lastSnapshot.ContextSwitchCount,
+                    avgDt,
+                    avgFt
                 );
 
                 UpdateHistory();
@@ -177,7 +182,7 @@ namespace Keymon
             _tray.UpdateAnimationByState(_engine.FocusState);
         }
 
-        // ── ISessionData 구현부 ──────────────────────────────────────────────────
+        // ── ISessionData 구현부 (변경 없음) ──────────────────────────────────────
         public bool IsFirstAnalysisComplete => _engine.IsFirstAnalysisComplete;
         public int RemainingSeconds => 60 - _tickCounter;
         public int FocusScore => _engine.FocusScore;
@@ -185,7 +190,7 @@ namespace Keymon
         public double FatigueScore => _engine.FatigueScore;
         public int CurrentKpm => _lastSnapshot.Kpm;
         public int CurrentMpm => _lastSnapshot.Mpm;
-        public int CurrentApm => _lastSnapshot.Kpm + _lastSnapshot.Mpm;
+        public int CurrentApm => _lastSnapshot.Kpm + _lastSnapshot.Mpm + _lastSnapshot.ScrollCount;
         public int BackspaceCount => _lastSnapshot.BackspaceCount;
         public int JerkCount => _lastSnapshot.JerkCount;
         public int ContextSwitchCount => _lastSnapshot.ContextSwitchCount;

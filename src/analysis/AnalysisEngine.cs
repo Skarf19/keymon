@@ -1,8 +1,18 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Keymon
 {
+    // 1분 데이터
+    public class MinuteStat
+    {
+        public DateTime Timestamp { get; set; }
+        public int FocusScore { get; set; }
+        public double FatigueScore { get; set; }
+        public int FatigueState { get; set; }
+    }
+
     // 사용자의 입력 패턴을 통계적(Z-Score, EMA)으로 분석하여 
     // 실시간 집중도(Focus)와 생체 모방형 피로도(Fatigue)를 산출하는 핵심 엔진입니다.
     public class AnalysisEngine
@@ -35,18 +45,20 @@ namespace Keymon
         public int TotalAccumulatedKeys { get; set; }
 
         // 사용자가 자리에서 이탈하지 않고 논리적으로 연속 작업한 시간 (분 단위)
-        public int ContinuousWorkMinutes { get; private set; }
+        public int ContinuousWorkMinutes { get; set; }
 
         // 학술 근거 2 적용: 몰입(Flow) 상태 관성을 위한 내부 카운터 (3분 이상 유지 시 Zone 진입) 및 집중이 깨졌을 때 강등을 유예하는 2분 카운터
         private int _deepFocusStreak = 0;
         private int _distractionStreak = 0;
+
+        private int _minuteCounter = 0;
 
         // ---------------------------------------------------------
         // 3. 외부 노출용 분석 결과 (모니터링/UI 계층 바인딩용)
         // ---------------------------------------------------------
         public int FocusScore { get; private set; }        // 최종 산출된 집중도 점수 (0~100)
         public int StressScore { get; private set; }       // 오타율 및 거친 마우스 조작 기반 뇌 과부하 수치 (0~100)
-        public double FatigueScore { get; private set; }  // 누적된 인지적/신체적 피로도 수치 (0~100)
+        public double FatigueScore { get;  set; }  // 누적된 인지적/신체적 피로도 수치 (0~100)
         public int FocusState { get; private set; }        // 현재 집중 상태 (0:휴식, 1:산만, 2:안정, 3:집중, 4:완벽한 몰입)
         public int FatigueState { get; private set; }      // 현재 피로도 경고 상태 (1:안전, 2:주의, 3:위험)
         public string StateReason { get; private set; } = "데이터 분석 중..."; // 상태 판별 근거 메시지 (UI 출력용)
@@ -54,6 +66,8 @@ namespace Keymon
 
         // 테스트 및 디버깅용 피로도 누적 배속 (기본값 1.0 = 리얼타임)
         public double FatigueTimeScale { get; set; } = 1.0;
+
+        public event Action<MinuteStat>? OnMinuteAnalyzed;
 
         // ---------------------------------------------------------
         // 4. 데이터 초기화
@@ -89,20 +103,7 @@ namespace Keymon
                 FocusScore = 0;
                 if (FocusState < 3)
                 {
-                    // 입력은 없는데 창 전환만 많다면 딴짓(산만함)으로 간주
-                    if (currentCsr >= 4)
-                    {
-                        FocusState = 1; // Distracted
-                        StateReason = $"현재 입력(APM {apm})이 부족한 반면, 창 전환이 발생하고 있어 산만한 상태로 판단됩니다.";
-                    }
-                    else
-                    {
-                        FocusState = 0;  // Idle (진정한 휴식 상태)
-                        StateReason = $"현재 입력(APM {apm})이 감지되지 않아 작업이 일시 정지된 상태입니다.";
-
-                        // 휴식 중 피로도 미세 회복 (초당)
-                        if (FatigueScore > 0) FatigueScore = Math.Max(0, FatigueScore - (0.1 * FatigueTimeScale));
-                    }
+                    if (FatigueScore > 0) FatigueScore = Math.Max(0, FatigueScore - (0.1 * FatigueTimeScale));
 
                     // 입력이 없으므로 스트레스 수치 점진적 하락
                     if (StressScore > 0) StressScore = Math.Max(0, StressScore - 5);
@@ -116,7 +117,8 @@ namespace Keymon
         // 학술 근거 1: 감성 컴퓨팅(Affective Computing)의 Time-Window 모델 적용
         // 노이즈(짧은 멈춤)를 필터링하고 통계적 유의성을 확보하기 위해 
         // 1초 주기의 실시간성과 60초 슬라이딩 윈도우(Sliding Window) 누적 방식을 혼합하여 사용합니다.
-        public void PerformDeepAnalysis(int kpm, int mpm, int backspace, int jerk, int csr, double avgDt, double avgFt)
+        // 💡 MetricCollector와의 데이터 동기화를 위해 maxConsecutiveBackspaces 매개변수를 완전히 복구했습니다.
+        public void PerformDeepAnalysis(int kpm, int mpm, int backspace, int maxConsecutiveBackspaces, int jerk, int csr, double avgDt, double avgFt)
         {
             // 인간의 물리적 타수 한계(약 800타)를 초과하면 정상적인 몰입이 아닌 시스템/외부 오류로 판단합니다.
             if (kpm > 800 || mpm > 1000)
@@ -129,7 +131,27 @@ namespace Keymon
             }
 
             int apm = kpm + mpm;
-            double currentER = kpm > 0 ? (double)backspace / kpm : 0; // 오타율(Error Rate)
+            double currentER = 0;
+
+            // 의도적 삭제 시 오타 페널티를 면제합니다.
+            bool isRewriting = maxConsecutiveBackspaces >= 7;
+
+            if (isRewriting)
+            {
+                int pureErrors = Math.Max(0, backspace - maxConsecutiveBackspaces);
+                currentER = kpm > 0 ? (double)pureErrors / kpm : 0;
+            }
+            else
+            {
+                currentER = kpm > 0 ? (double)backspace / kpm : 0;
+            }
+
+            if (currentER > 1.0)
+            {
+                FocusScore = 0; FocusState = 1; _deepFocusStreak = 0; _distractionStreak = 0;
+                StateReason = "⚠️ 친 글자보다 지운 글자가 많습니다. 단순 삭제 작업이거나 키 눌림이 의심됩니다.";
+                return;
+            }
 
             // [1] 학습 데이터 로드 (학습 전이면 글로벌 평균 사용)
             double prevEmaKpm = PersonalEmaKpm == 0 ? GlobalAvgKpm : PersonalEmaKpm;
@@ -156,11 +178,19 @@ namespace Keymon
 
             // [4] 파이프라인 실행: 피로도를 '먼저' 갱신하고, 그 피로도를 바탕으로 상태를 판별합니다.
             // 자아 고갈(Ego Depletion) 이론 적용을 위해 순서가 매우 중요합니다.
-            UpdateFatigue(zKpm);
-            DetermineState(apm, csr, zKpm, zEr, zMj);
+            UpdateFatigue(zKpm, apm);
+            DetermineState(apm, csr, zKpm, zEr, zMj, isRewriting);
 
-            // [5] 최종 집중도 점수 산출 (페널티 적용)
-            double zErPositive = Math.Max(0, zEr);
+
+            _minuteCounter++;
+            if (_minuteCounter >= 5)
+            {
+                // 5분마다 상태 확정 및 초기화
+                _minuteCounter = 0;
+            }
+
+                // [5] 최종 집중도 점수 산출 (페널티 적용)
+                double zErPositive = Math.Max(0, zEr);
             double erPenalty = zErPositive > 1.0 ? Math.Pow(zErPositive, 1.5) * 10 : zErPositive * 5; // 오타율 비선형 페널티
             double csrPenalty = Math.Pow(csr, 1.5) * 1.5;
             double speedBonus = Math.Clamp((zKpm * 10) + (mpm * 0.1), -20, 25);
@@ -195,20 +225,30 @@ namespace Keymon
                 UpdateBaseline(kpm, currentER, avgDt, avgFt, jerk, prevEmaKpm, prevEmaEr, prevEmaDt, prevEmaFt, prevEmaMj);
             }
             IsFirstAnalysisComplete = true;
+
+            MinuteStat newStat = new MinuteStat
+            {
+                Timestamp = DateTime.Now,
+                FocusScore = this.FocusScore,
+                FatigueScore = this.FatigueScore,
+                FatigueState = this.FatigueState
+            };
+
+            OnMinuteAnalyzed?.Invoke(newStat);
         }
 
         // ---------------------------------------------------------
         // 7. 생체 모방형 피로도 로직 (울트라디안 리듬 및 비선형 가중치 반영)
         // ---------------------------------------------------------
-        private void UpdateFatigue(double zKpm)
+        private void UpdateFatigue(double zKpm, int apm)
         {
-            if (FocusState == 0) // 유휴 상태 (빠른 회복)
+            if (apm < 15)
             {
-                // 짧은 휴식으로도 뇌가 빠르게 회복되는 현실적 메커니즘 (TimeScale로 디버깅 배속 지원)
+                // 짧은 휴식으로도 뇌가 빠르게 회복되는 현실적 메커니즘
                 double recoveryAmount = (2.0 + (FatigueScore * 0.1)) * FatigueTimeScale;
                 FatigueScore = Math.Max(0, FatigueScore - recoveryAmount);
 
-                // 휴식 시 논리적 연속 작업(스트레스) 시간 대폭 차감
+                // 휴식 시 연속 작업 시간 대폭 차감
                 ContinuousWorkMinutes = Math.Max(0, ContinuousWorkMinutes - (int)(5 * FatigueTimeScale));
             }
             else // 작업 중 (가중 누적)
@@ -266,7 +306,7 @@ namespace Keymon
         // 8. 5단계 몰입 상태 판별 로직 (Flow 이론 및 자아 고갈 이론 반영)
         // ---------------------------------------------------------
         // Z-Score 및 절대 기준을 종합하여 현재 사용자의 상태를 판별합니다.
-        private void DetermineState(int apm, int csr, double zKpm, double zEr, double zMj)
+        private void DetermineState(int apm, int csr, double zKpm, double zEr, double zMj, bool isRewriting)
         {
             // 1. 현재 60초 데이터만으로 본 순수 '목표 상태(Target State)' 판별
             int targetState = 2;
@@ -293,7 +333,7 @@ namespace Keymon
             else if ((zKpm > 0.5 || apm >= 40) && csr <= 5 && apm >= 30)
             {
                 targetState = 3;
-                targetReason = "안정적이고 빠른 작업 페이스 유지 중.";
+                targetReason = isRewriting ? "문장 재작성(퇴고) 등 안정적이고 집중된 작업 흐름입니다." : "안정적이고 빠른 작업 페이스 유지 중.";
             }
             else
             {
@@ -301,58 +341,63 @@ namespace Keymon
                 targetReason = "평소 패턴과 일치하는 안정적인 상태.";
             }
 
-            // 2. 관성(Hysteresis) 필터 적용: 상향 관성 & 하향 관성
-            if (targetState >= 3)
+            targetState = GetSmoothedState(targetState);
+
+            if (_minuteCounter == 0)
             {
-                _distractionStreak = 0; // 집중을 되찾았으므로 하향 관성 초기화
-
-                if (targetState == 4)
+                // 2. 관성(Hysteresis) 필터 적용: 상향 관성 & 하향 관성
+                if (targetState >= 3)
                 {
-                    _deepFocusStreak++; // 60초 분석 시마다 조건 달성 카운트 누적
+                    _distractionStreak = 0; // 집중을 되찾았으므로 하향 관성 초기화
 
-                    if (_deepFocusStreak >= 3) // 3분(3회) 연속 조건을 달성해야 비로소 Deep Focus 로 인정
+                    if (targetState == 4)
                     {
-                        FocusState = 4; // 평소 대비 속도 극대화, 오타 0, 딴짓 없음 (Zone 상태)
-                        StateReason = "완벽한 몰입(Flow) 상태 유지 중!";
+                        _deepFocusStreak++; // 60초 분석 시마다 조건 달성 카운트 누적
+
+                        if (_deepFocusStreak >= 3) // 3분(3회) 연속 조건을 달성해야 비로소 Deep Focus 로 인정
+                        {
+                            FocusState = 4; // 평소 대비 속도 극대화, 오타 0, 딴짓 없음 (Zone 상태)
+                            StateReason = "완벽한 몰입(Flow) 상태 유지 중!";
+                        }
+                        else
+                        {
+                            FocusState = 3;
+                            StateReason = $"고도의 집중 상태 진입 중... ({_deepFocusStreak}/3)";
+                        }
                     }
                     else
                     {
-                        FocusState = 3;
-                        StateReason = $"고도의 집중 상태 진입 중... ({_deepFocusStreak}/3)";
+                        _deepFocusStreak = 0;
+                        FocusState = 3; // 긍정적인 가속 상태
+                        StateReason = targetReason;
                     }
                 }
                 else
                 {
-                    _deepFocusStreak = 0;
-                    FocusState = 3; // 긍정적인 가속 상태
-                    StateReason = targetReason;
-                }
-            }
-            else
-            {
-                // 이전에 몰입(FocusState 3 이상) 중이었다면, 유예 기간을 부여합니다.
-                if (FocusState >= 3)
-                {
-                    _distractionStreak++;
-                    if (_distractionStreak >= 2)
+                    // 이전에 몰입(FocusState 3 이상) 중이었다면, 유예 기간을 부여합니다.
+                    if (FocusState >= 3)
+                    {
+                        _distractionStreak++;
+                        if (_distractionStreak >= 2)
+                        {
+                            FocusState = targetState;
+                            StateReason = targetReason;
+                            _deepFocusStreak = 0; // 몰입 깨짐
+                            _distractionStreak = 0;
+                        }
+                        else
+                        {
+                            FocusState = 3;
+                            StateReason = $"⚠️ 집중력 하락 감지. 흐름을 잃지 않도록 주의하세요! (경고 {_distractionStreak}/2)";
+                        }
+                    }
+                    else
                     {
                         FocusState = targetState;
                         StateReason = targetReason;
-                        _deepFocusStreak = 0; // 몰입 깨짐
+                        _deepFocusStreak = 0; // 방해 요소로 인해 몰입 깨짐, 혹은 작업 흐름 정지 상태
                         _distractionStreak = 0;
                     }
-                    else
-                    {
-                        FocusState = 3;
-                        StateReason = $"⚠️ 집중력 하락 감지. 흐름을 잃지 않도록 주의하세요! (경고 {_distractionStreak}/2)";
-                    }
-                }
-                else
-                {
-                    FocusState = targetState;
-                    StateReason = targetReason;
-                    _deepFocusStreak = 0; // 방해 요소로 인해 몰입 깨짐, 혹은 작업 흐름 정지 상태
-                    _distractionStreak = 0;
                 }
             }
 
@@ -405,6 +450,21 @@ namespace Keymon
             PersonalVarDt = (1 - Alpha) * (PersonalVarDt + Alpha * Math.Pow(dt - pDt, 2));
             PersonalVarFt = (1 - Alpha) * (PersonalVarFt + Alpha * Math.Pow(ft - pFt, 2));
             PersonalVarMj = (1 - Alpha) * (PersonalVarMj + Alpha * Math.Pow(jerk - pMj, 2));
+        }
+
+        private readonly Queue<int> _stateBuffer = new();
+
+        // 5분치(5개) 데이터 중 최빈값을 뽑는 로직
+        private int GetSmoothedState(int rawTargetState)
+        {
+            _stateBuffer.Enqueue(rawTargetState);
+            if (_stateBuffer.Count > 5) _stateBuffer.Dequeue();
+
+            // 빈도수 카운트 -> 개수가 같으면 마지막에 들어온 순서(최신)를 우선으로
+            return _stateBuffer.GroupBy(s => s)
+                               .OrderByDescending(g => g.Count())
+                               .ThenByDescending(g => _stateBuffer.ToList().LastIndexOf(g.Key))
+                               .First().Key;
         }
     }
 }
