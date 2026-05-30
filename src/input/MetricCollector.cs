@@ -16,6 +16,11 @@ namespace Keymon
     // 이제 이 클래스 하나가 '입력 수집' 책임만 집니다.
     public class MetricCollector
     {
+        private int _currentConsecutiveBackspaces = 0;
+        private int _maxConsecutiveBackspaces = 0;
+        private KeyCode _lastKeyCode = KeyCode.Vc0;
+        private int _repeatCount = 0;
+
         // Queue<DateTime>은 선입선출(FIFO) 자료구조입니다.
         // 이벤트 발생 시각을 순서대로 저장하고, 60초가 지난 항목은 앞에서 제거합니다.
         // 즉, Count가 곧 '최근 60초 내 발생 횟수'가 됩니다.
@@ -24,6 +29,7 @@ namespace Keymon
         private readonly Queue<DateTime> _backspaceTimes = new();
         private readonly Queue<DateTime> _contextSwitchTimes = new();
         private readonly Queue<DateTime> _jerkTimes = new();
+        private readonly Queue<DateTime> _scrollTimes = new();
 
         // 마우스 방향 급전환(Jerk) 감지를 위한 임시 큐입니다.
         // 2초 내에 3회 이상 급전환이 있을 때만 _jerkTimes에 기록합니다.
@@ -47,6 +53,9 @@ namespace Keymon
         private double _lastMouseAngle = -1000;
         private DateTime _lastMouseTime = DateTime.MinValue;
 
+        private int _scrollAccumulator = 0; 
+        private const int ScrollThreshold = 2500; // 윈도우의 1단계 스크롤 값
+
         // 창 전환 감지를 위한 이전 포어그라운드 윈도우 핸들
         private IntPtr _lastWindowHandle = IntPtr.Zero;
 
@@ -57,6 +66,7 @@ namespace Keymon
         // persistence용 총 카운터 (분석에는 사용되지 않고 userData.json에 저장만 됨)
         public int TotalKeyCount { get; set; }
         public int TotalMouseCount { get; set; }
+        public int TotalScrollCount { get; set; }
         public int TotalBackspaceCount { get; set; }
 
         // P/Invoke: C#에서 Windows API(C언어로 작성된 함수)를 직접 호출하는 방법입니다.
@@ -75,6 +85,7 @@ namespace Keymon
             hookManager.KeyReleased += OnKeyReleased;
             hookManager.MousePressed += OnMousePressed;
             hookManager.MouseMoved += OnMouseMoved;
+            hookManager.MouseWheel += OnMouseWheel;
         }
 
         // MonitoringService가 매 1초마다 호출합니다.
@@ -99,7 +110,9 @@ namespace Keymon
                 JerkCount: _jerkTimes.Count,
                 ContextSwitchCount: _contextSwitchTimes.Count,
                 AvgDwellTime: avgDt,
-                AvgFlightTime: avgFt
+                AvgFlightTime: avgFt,
+                MaxConsecutiveBackspaces: _maxConsecutiveBackspaces,
+                ScrollCount: _scrollTimes.Count
             );
         }
 
@@ -111,6 +124,9 @@ namespace Keymon
             _minuteCountDt = 0;
             _minuteTotalFt = 0;
             _minuteCountFt = 0;
+
+            _maxConsecutiveBackspaces = 0;
+            _currentConsecutiveBackspaces = 0;
         }
 
         // 사용자가 트레이에서 '데이터 초기화'를 선택했을 때 호출됩니다.
@@ -120,6 +136,7 @@ namespace Keymon
             TotalAccumulatedKeys = 0;
             TotalKeyCount = 0;
             TotalMouseCount = 0;
+            TotalScrollCount = 0;
             TotalBackspaceCount = 0;
             _lastKeyReleaseTime = DateTime.MinValue;
             _lastWindowHandle = IntPtr.Zero;
@@ -133,6 +150,7 @@ namespace Keymon
             lock (_backspaceTimes) { _backspaceTimes.Clear(); }
             lock (_contextSwitchTimes) { _contextSwitchTimes.Clear(); }
             lock (_jerkTimes) { _jerkTimes.Clear(); }
+            lock (_scrollTimes) { _scrollTimes.Clear(); }
             _mouseTurnTimes.Clear();
 
             ResetTimingAccumulators();
@@ -149,13 +167,31 @@ namespace Keymon
                 // 키 반복 입력(키 누른 채 유지) 방지: 이미 눌린 키면 무시
                 if (_pressedKeys.ContainsKey(keyCode)) return;
 
+                if (_lastKeyCode == keyCode)
+                {
+                    _repeatCount++;
+                    // 똑같은 키 5번 이상 누르면 큐에 안 넣고 무시!
+                    if (_repeatCount >= 5) return;
+                }
+                else
+                {
+                    _lastKeyCode = keyCode;
+                    _repeatCount = 0;
+                }
+
                 TotalAccumulatedKeys++;
                 TotalKeyCount++;
 
                 if (keyCode == KeyCode.VcBackspace)
                 {
                     TotalBackspaceCount++;
+                    _currentConsecutiveBackspaces++;
+                    _maxConsecutiveBackspaces = Math.Max(_maxConsecutiveBackspaces, _currentConsecutiveBackspaces);
                     lock (_backspaceTimes) { _backspaceTimes.Enqueue(now); }
+                }
+                else
+                {
+                    _currentConsecutiveBackspaces = 0; // 흐름 끊김
                 }
 
                 _keyTimes.Enqueue(now);
@@ -197,6 +233,24 @@ namespace Keymon
         {
             TotalMouseCount++;
             lock (_mouseTimes) { _mouseTimes.Enqueue(DateTime.Now); }
+        }
+
+        // 마우스 휠이 회전할 때마다 호출됩니다. 
+        private void OnMouseWheel(object? sender, MouseWheelHookEventArgs e)
+        {
+            _scrollAccumulator += e.Data.Rotation;
+            System.Diagnostics.Debug.WriteLine($"[DEBUG] Rotation값: {e.Data.Rotation}");
+
+            // 120(Threshold)을 넘을 때마다 1회 스크롤 동작으로 간주
+            if (Math.Abs(_scrollAccumulator) >= ScrollThreshold)
+            {
+                TotalScrollCount++;
+
+                // 💡 핵심: 클릭(Mpm)이나 키보드(Kpm)처럼 시간을 큐에 담습니다.
+                lock (_scrollTimes) { _scrollTimes.Enqueue(DateTime.Now); }
+
+                _scrollAccumulator = 0;
+            }
         }
 
         // 마우스가 움직일 때마다 호출됩니다 (Jerk 감지 로직).
@@ -256,6 +310,7 @@ namespace Keymon
             lock (_backspaceTimes) { while (_backspaceTimes.Count > 0 && (now - _backspaceTimes.Peek()).TotalSeconds > 60) _backspaceTimes.Dequeue(); }
             lock (_contextSwitchTimes) { while (_contextSwitchTimes.Count > 0 && (now - _contextSwitchTimes.Peek()).TotalSeconds > 60) _contextSwitchTimes.Dequeue(); }
             lock (_jerkTimes) { while (_jerkTimes.Count > 0 && (now - _jerkTimes.Peek()).TotalSeconds > 60) _jerkTimes.Dequeue(); }
+            lock (_scrollTimes) { while (_scrollTimes.Count > 0 && (now - _scrollTimes.Peek()).TotalSeconds > 60) _scrollTimes.Dequeue(); }
         }
 
         // Windows API로 현재 포어그라운드 창을 확인합니다.
@@ -303,6 +358,11 @@ namespace Keymon
             lock (_jerkTimes)
             {
                 ShiftQueueInPlace(_jerkTimes, offset);
+            }
+
+            lock (_scrollTimes) 
+            { 
+                ShiftQueueInPlace(_scrollTimes, offset); 
             }
 
             // (임시 큐도 밀어줍니다)
