@@ -1,74 +1,142 @@
 using System;
 using System.Collections.Generic;
 using System.Windows.Threading;
+using System.Windows;
+using Microsoft.Win32;
 
 namespace Keymon
 {
     // MonitoringService의 역할:
-    //   - 1초마다 실행되는 타이머 루프를 소유합니다.
-    //   - MetricCollector에서 스냅샷을 가져와 AnalysisEngine에 전달합니다.
-    //   - 60초마다 심층 분석을 트리거합니다.
-    //   - 분석 결과를 UnityBridge와 TrayIconManager에 전달합니다.
-    //   - ISessionData를 구현하여 DashboardWindow에 데이터를 제공합니다.
+    //   - 1초마다 실행되는 타이머 루프 소유
+    //   - 절전 모드 진입/해제 감지 및 대응
+    //   - PersistenceService를 통한 데이터 Save/Load 트리거
     public class MonitoringService : ISessionData
     {
         private readonly MetricCollector _collector;
         private readonly AnalysisEngine _engine;
         private readonly UnityBridge _unity;
         private readonly TrayIconManager _tray;
+        private readonly PersistenceService _persistence;
 
-        // DispatcherTimer: WPF에서 UI 스레드에서 주기적으로 코드를 실행하는 타이머입니다.
         private DispatcherTimer? _timer;
-
         private int _tickCounter;
+        private DateTime _inactiveStartTime;
         private readonly List<int> _historyScores = new();
         private readonly List<int> _historyStates = new();
         private readonly List<int> _historyFatigue = new();
 
-        // 매 틱마다 갱신되는 최신 스냅샷을 캐시합니다.
-        private MetricSnapshot _lastSnapshot = new(0, 0, 0, 0, 0, 0, 0);
+        private MetricSnapshot _lastSnapshot = new(0, 0, 0, 0, 0, 0, 0, 0, 0);
 
-        // 생성자: 필요한 의존 객체들을 외부에서 주입받습니다 (의존성 주입 패턴).
-        public MonitoringService(MetricCollector collector, AnalysisEngine engine, UnityBridge unity, TrayIconManager tray)
+        public MonitoringService(MetricCollector collector, AnalysisEngine engine, UnityBridge unity, TrayIconManager tray, PersistenceService persistence)
         {
             _collector = collector;
             _engine = engine;
             _unity = unity;
             _tray = tray;
+            _persistence = persistence;
+
+            _persistence.Load(_engine, _collector);
         }
 
         public void Start()
         {
+            SystemEvents.PowerModeChanged += OnPowerModeChanged;
+            SystemEvents.SessionSwitch += OnSessionSwitch;
+
             _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _timer.Tick += OnTick;
             _timer.Start();
         }
 
-        public void Stop() => _timer?.Stop();
+        public void Stop()
+        {
+            _timer?.Stop();
+            SystemEvents.PowerModeChanged -= OnPowerModeChanged;
+            SystemEvents.SessionSwitch -= OnSessionSwitch;
+            _persistence.Save(_engine, _collector);
+        }
 
-        public void Reset() // 리셋
+        // --- 절전 모드 대응 로직 ---
+        private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
+        {
+            if (e.Mode == PowerModes.Suspend) HandleSystemInactive();
+            else if (e.Mode == PowerModes.Resume) HandleSystemActive();
+        }
+
+        private void OnSessionSwitch(object sender, SessionSwitchEventArgs e)
+        {
+            if (e.Reason == SessionSwitchReason.SessionLock) HandleSystemInactive();
+            else if (e.Reason == SessionSwitchReason.SessionUnlock) HandleSystemActive();
+        }
+
+        // 자리 비움 (절전, 잠금): 시간을 멈추고 현재 상태를 보존
+        private void HandleSystemInactive()
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                _timer?.Stop();
+                _inactiveStartTime = DateTime.Now;
+                _persistence.Save(_engine, _collector);
+            });
+        }
+
+        // 복귀 (깨어남, 잠금 해제): 멈췄던 시간을 그대로 다시 재생
+        private void HandleSystemActive()
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                if (_inactiveStartTime != default)
+                {
+                    TimeSpan sleepDuration = DateTime.Now - _inactiveStartTime;
+                    _collector.OffsetTime(sleepDuration);
+                    _inactiveStartTime = default;
+                }
+                _timer?.Start();
+            });
+        }
+
+        public void Reset()
         {
             _tickCounter = 0;
             _historyScores.Clear();
             _historyStates.Clear();
             _historyFatigue.Clear();
-            _lastSnapshot = new(0, 0, 0, 0, 0, 0, 0);
+
+            _lastSnapshot = new(0, 0, 0, 0, 0, 0, 0, 0, 0);
             _collector.Reset();
             _engine.Reset();
         }
 
-        // 1초마다 DispatcherTimer가 자동으로 호출합니다.
         private void OnTick(object? sender, EventArgs e)
         {
             DateTime now = DateTime.Now;
-            _tickCounter++;
 
             _collector.Tick(now);
             _lastSnapshot = _collector.GetSnapshot();
 
+            int currentApm = _lastSnapshot.Kpm + _lastSnapshot.Mpm + _lastSnapshot.ScrollCount;
+
+            if (_engine.IsStandby)
+            {
+                if (currentApm > 0)
+                {
+                    _engine.WakeUp();
+                    _tickCounter = 0;
+                    _collector.ResetTimingAccumulators();
+                }
+                else
+                {
+                    UpdateTrayTooltip();
+                    _unity.SendState(_engine.FocusState);
+                    return;
+                }
+            }
+
+            _tickCounter++;
+
             _engine.UpdateRealtimeStatus(
                 _lastSnapshot.Kpm,
-                _lastSnapshot.Mpm,
+                _lastSnapshot.Mpm + _lastSnapshot.ScrollCount,
                 _lastSnapshot.ContextSwitchCount,
                 _engine.IsFirstAnalysisComplete
             );
@@ -81,9 +149,14 @@ namespace Keymon
                 double avgFt = _lastSnapshot.AvgFlightTime > 0 ? _lastSnapshot.AvgFlightTime : _engine.PersonalEmaFt;
 
                 _engine.PerformDeepAnalysis(
-                    _lastSnapshot.Kpm, _lastSnapshot.Mpm,
-                    _lastSnapshot.BackspaceCount, _lastSnapshot.JerkCount,
-                    _lastSnapshot.ContextSwitchCount, avgDt, avgFt
+                    _lastSnapshot.Kpm,
+                    _lastSnapshot.Mpm + _lastSnapshot.ScrollCount,
+                    _lastSnapshot.BackspaceCount,
+                    _lastSnapshot.MaxConsecutiveBackspaces,
+                    _lastSnapshot.JerkCount,
+                    _lastSnapshot.ContextSwitchCount,
+                    avgDt,
+                    avgFt
                 );
 
                 UpdateHistory();
@@ -97,14 +170,10 @@ namespace Keymon
 
         private void UpdateHistory()
         {
-            // 집중도 기록
             _historyScores.Add(_engine.FocusScore);
             _historyStates.Add(_engine.FocusState);
-
-            // 피로도 기록 (차트 표시를 위해 정수형으로 변환하여 저장)
             _historyFatigue.Add((int)_engine.FatigueScore);
 
-            // 10개가 넘으면 가장 오래된 데이터 삭제 (최근 10분 유지)
             if (_historyScores.Count > 10)
             {
                 _historyScores.RemoveAt(0);
@@ -115,18 +184,26 @@ namespace Keymon
 
         private void UpdateTrayTooltip()
         {
-            if (!_engine.IsFirstAnalysisComplete)
+            _tray.IsStandby = _engine.IsStandby;
+
+            if (_engine.IsStandby)
             {
-                _tray.UpdateTooltip($"⏳ 패턴 분석 중... ({60 - _tickCounter}초)");
+                _tray.UpdateTooltip("대기 모드 (수집 일시정지)");
                 return;
             }
-            string[] stateNames = { "Idle ☕", "Distracted 😵‍💫", "Engaged 🙂", "Focused 🤓", "Deep Focus 🔥" };
+
+            if (!_engine.IsFirstAnalysisComplete)
+            {
+                _tray.UpdateTooltip($"패턴 분석 중... ({60 - _tickCounter}초)");
+                return;
+            }
+            string[] stateNames = { "Idle", "Distracted", "Engaged", "Focused", "Deep Focus" };
             string stateText = stateNames[Math.Clamp(_engine.FocusState, 0, 4)];
-            _tray.UpdateTooltip($"🎯 {stateText} ({_engine.FocusScore}%)\nKPM: {_lastSnapshot.Kpm} | 창 전환: {_lastSnapshot.ContextSwitchCount}회");
+            _tray.UpdateTooltip($"{stateText} ({_engine.FocusScore}%)\nKPM: {_lastSnapshot.Kpm} | 창 전환: {_lastSnapshot.ContextSwitchCount}회");
             _tray.UpdateAnimationByState(_engine.FocusState);
         }
 
-        // ── ISessionData 구현부 ──────────────────────────────────────────────────
+        // ── ISessionData 구현부 (변경 없음) ──────────────────────────────────────
         public bool IsFirstAnalysisComplete => _engine.IsFirstAnalysisComplete;
         public int RemainingSeconds => 60 - _tickCounter;
         public int FocusScore => _engine.FocusScore;
@@ -134,7 +211,7 @@ namespace Keymon
         public double FatigueScore => _engine.FatigueScore;
         public int CurrentKpm => _lastSnapshot.Kpm;
         public int CurrentMpm => _lastSnapshot.Mpm;
-        public int CurrentApm => _lastSnapshot.Kpm + _lastSnapshot.Mpm;
+        public int CurrentApm => _lastSnapshot.Kpm + _lastSnapshot.Mpm + _lastSnapshot.ScrollCount;
         public int BackspaceCount => _lastSnapshot.BackspaceCount;
         public int JerkCount => _lastSnapshot.JerkCount;
         public int ContextSwitchCount => _lastSnapshot.ContextSwitchCount;
@@ -143,5 +220,7 @@ namespace Keymon
         public string StateReason => _engine.StateReason;
         public List<int> HistoryScores => new List<int>(_historyScores);
         public List<int> HistoryFatigue => new List<int>(_historyFatigue);
+
+        public bool IsStandby => _engine.IsStandby;
     }
 }

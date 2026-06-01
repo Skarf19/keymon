@@ -16,6 +16,8 @@ namespace Keymon
         int JerkCount,         // 최근 60초 동안 감지된 급격한 마우스 방향 전환 횟수
         int ContextSwitchCount,// 최근 60초 동안의 창 전환 횟수
         double AvgDwellTime,   // 이번 분기 평균 키 누름 지속 시간 (ms). 데이터 없으면 0
-        double AvgFlightTime   // 이번 분기 평균 키 간격 시간 (ms). 데이터 없으면 0
+        double AvgFlightTime,   // 이번 분기 평균 키 간격 시간 (ms). 데이터 없으면 0
+        int MaxConsecutiveBackspaces,
+        int ScrollCount
     );
 }

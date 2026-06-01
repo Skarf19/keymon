@@ -62,5 +62,7 @@ namespace Keymon
 
         // MonitoringService에서 기록한 _historyFatigue를 전달받기 위해 필요합니다.
         List<int> HistoryFatigue { get; }
+
+        bool IsStandby { get; }
     }
 }

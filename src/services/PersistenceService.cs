@@ -37,8 +37,17 @@ namespace Keymon
                 engine.PersonalEmaMj = data.PersonalEmaMj;
                 engine.PersonalVarMj = data.PersonalVarMj;
                 engine.TotalAccumulatedKeys = data.TotalAccumulatedKeys;
+
+                // 피로도 및 연속 작업 시간 복구
+                engine.FatigueScore = data.FatigueScore;
+                engine.ContinuousWorkMinutes = data.ContinuousWorkMinutes;
+  
             }
-            catch { }
+            catch (Exception ex)
+            {
+                // 에러 발생 시 프로그램이 뻗지 않고, 원인만 콘솔에 남깁니다.
+                Console.WriteLine($"[데이터 로드 실패] {ex.Message}");
+            }
         }
 
         public void Save(AnalysisEngine engine, MetricCollector collector)
@@ -60,11 +69,20 @@ namespace Keymon
                     PersonalVarDt = engine.PersonalVarDt,
                     PersonalVarFt = engine.PersonalVarFt,
                     PersonalEmaMj = engine.PersonalEmaMj,
-                    PersonalVarMj = engine.PersonalVarMj
+                    PersonalVarMj = engine.PersonalVarMj,
+
+                    // 💡 추가됨: 피로도 및 연속 작업 시간 저장
+                    FatigueScore = engine.FatigueScore,
+                    ContinuousWorkMinutes = engine.ContinuousWorkMinutes
                 };
+
                 File.WriteAllText(FilePath, JsonSerializer.Serialize(data));
             }
-            catch { }
+            catch (Exception ex)
+            {
+                // 에러 발생 시 원인을 콘솔에 남겨 디버깅을 돕습니다.
+                Console.WriteLine($"[데이터 저장 실패] {ex.Message}");
+            }
         }
 
         // private: 이 클래스 내부에서만 사용됩니다.
@@ -84,6 +102,8 @@ namespace Keymon
             public double PersonalVarFt { get; set; }
             public double PersonalEmaMj { get; set; }
             public double PersonalVarMj { get; set; }
+            public double FatigueScore { get; set; }
+            public int ContinuousWorkMinutes { get; set; }
         }
     }
 }
