@@ -53,12 +53,15 @@ namespace Keymon
 
         private int _minuteCounter = 0;
 
+        public bool IsStandby { get; private set; } = false;
+        private int _idleMinutes = 0;
+
         // ---------------------------------------------------------
         // 3. 외부 노출용 분석 결과 (모니터링/UI 계층 바인딩용)
         // ---------------------------------------------------------
         public int FocusScore { get; private set; }        // 최종 산출된 집중도 점수 (0~100)
         public int StressScore { get; private set; }       // 오타율 및 거친 마우스 조작 기반 뇌 과부하 수치 (0~100)
-        public double FatigueScore { get;  set; }  // 누적된 인지적/신체적 피로도 수치 (0~100)
+        public double FatigueScore { get; set; }  // 누적된 인지적/신체적 피로도 수치 (0~100)
         public int FocusState { get; private set; }        // 현재 집중 상태 (0:휴식, 1:산만, 2:안정, 3:집중, 4:완벽한 몰입)
         public int FatigueState { get; private set; }      // 현재 피로도 경고 상태 (1:안전, 2:주의, 3:위험)
         public string StateReason { get; private set; } = "데이터 분석 중..."; // 상태 판별 근거 메시지 (UI 출력용)
@@ -87,6 +90,15 @@ namespace Keymon
             FatigueState = 1; // 피로도 기본 상태는 1(안전)
             StateReason = "데이터 분석 중...";
             IsFirstAnalysisComplete = false;
+            IsStandby = false;
+            _idleMinutes = 0;
+        }
+
+        public void WakeUp()
+        {
+            IsStandby = false;
+            _idleMinutes = 0;
+            StateReason = "⚡ 작업 재개 감지! 수집을 다시 시작합니다.";
         }
 
         // ---------------------------------------------------------
@@ -131,6 +143,19 @@ namespace Keymon
             }
 
             int apm = kpm + mpm;
+
+            if (apm < 15) _idleMinutes++;
+            else _idleMinutes = 0;
+
+            if (_idleMinutes >= 5)
+            {
+                IsStandby = true;
+                FocusScore = 0;
+                FocusState = 0;
+                StateReason = "💤 장기 대기 모드 (데이터 수집 일시정지됨)";
+                return;
+            }
+
             double currentER = 0;
 
             // 의도적 삭제 시 오타 페널티를 면제합니다.

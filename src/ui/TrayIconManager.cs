@@ -5,9 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using System.Drawing;
 
 namespace Keymon
 {
@@ -18,14 +16,19 @@ namespace Keymon
         private const string AppName = "Keymon";
 
         private DispatcherTimer? _animTimer;
-        private readonly Dictionary<int, List<Icon>> _animationGroups = new();
+
+        private readonly Dictionary<int, List<System.Drawing.Icon>> _animationGroups = new();
         private int _currentAnimationNum = 1;
+        private int _targetAnimationNum = 1;
         private int _currentFrameIdx = 0;
         private int _transitionDelayCounter = 0;
 
         public Action? OnShowDashboard;
         public Action? OnResetData;
         public Action? OnExit;
+        public Action<bool>? OnToggleOverlay;
+
+        public bool IsStandby { get; set; } = false;
 
         public void Initialize()
         {
@@ -58,21 +61,21 @@ namespace Keymon
             string baseDir = Path.GetFullPath(Path.Combine(exeDir, @"..\..\..\"));
             for (int animNum = 1; animNum <= 5; animNum++)
             {
-                var frames = new List<Icon>();
-                for (int i = 0; i < 13; i++)
+                var frames = new List<System.Drawing.Icon>();
+                for (int i = 1; i <= 8; i++)
                 {
-                    string path = Path.Combine(baseDir, "Assets", $"Anim{animNum}", $"{i}.png");
+                    string path = Path.Combine(baseDir, "Assets", $"TrayAsset{animNum}", $"{i}.png");
 
                     if (File.Exists(path))
                     {
                         try
                         {
-                            using (var bitmap = new Bitmap(path))
+                            using (var bitmap = new System.Drawing.Bitmap(path))
                             {
-                                using (var resized = new Bitmap(bitmap, new System.Drawing.Size(32, 32)))
+                                using (var resized = new System.Drawing.Bitmap(bitmap, new System.Drawing.Size(32, 32)))
                                 {
                                     IntPtr hIcon = resized.GetHicon();
-                                    frames.Add(Icon.FromHandle(hIcon));
+                                    frames.Add(System.Drawing.Icon.FromHandle(hIcon));
                                 }
                             }
                         }
@@ -85,9 +88,30 @@ namespace Keymon
 
         private void OnAnimationTick(object? sender, EventArgs e)
         {
-            if (_notifyIcon == null || !_animationGroups.ContainsKey(_currentAnimationNum)) return;
+            if (_notifyIcon == null) return;
+
+            if (IsStandby)
+            {
+                if (_animationGroups.ContainsKey(1) && _animationGroups[1].Count > 0)
+                {
+                    _notifyIcon.Icon = _animationGroups[1][0];
+                }
+                _currentAnimationNum = 1;
+                _targetAnimationNum = 1;
+                _currentFrameIdx = 0;
+                _transitionDelayCounter = 0;
+                return;
+            }
+
+            if (!_animationGroups.ContainsKey(_currentAnimationNum)) return;
+
             var currentSet = _animationGroups[_currentAnimationNum];
-            _notifyIcon.Icon = currentSet[_currentFrameIdx];
+
+            if (_currentFrameIdx < currentSet.Count)
+            {
+                _notifyIcon.Icon = currentSet[_currentFrameIdx];
+            }
+
             if (_currentFrameIdx == 0)
             {
                 _transitionDelayCounter++;
@@ -97,10 +121,21 @@ namespace Keymon
                 }
                 _transitionDelayCounter = 0;
             }
+
             _currentFrameIdx++;
+
             if (_currentFrameIdx >= currentSet.Count)
             {
-                _currentFrameIdx = 1;
+                if (_currentAnimationNum != _targetAnimationNum)
+                {
+                    _currentAnimationNum = _targetAnimationNum;
+                    _currentFrameIdx = 0;
+                    _transitionDelayCounter = 24;
+                }
+                else
+                {
+                    _currentFrameIdx = 1;
+                }
             }
         }
 
@@ -115,12 +150,8 @@ namespace Keymon
                 4 => 5,
                 _ => 1
             };
-            if (_currentAnimationNum != nextAnimNum)
-            {
-                _currentAnimationNum = nextAnimNum;
-                _currentFrameIdx = 0;
-                _transitionDelayCounter = 0;
-            }
+
+            _targetAnimationNum = nextAnimNum;
         }
 
         public void UpdateTooltip(string text) { if (_notifyIcon != null) _notifyIcon.ToolTipText = text; }
@@ -131,6 +162,13 @@ namespace Keymon
             var dashItem = new MenuItem { Header = "대시보드 열기" };
             dashItem.Click += (s, e) => OnShowDashboard?.Invoke();
             menu.Items.Add(dashItem);
+
+            menu.Items.Add(new Separator());
+
+            var overlayToggleItem = new MenuItem { Header = "오버레이 창 표시", IsCheckable = true, IsChecked = true };
+            overlayToggleItem.Click += (s, e) => OnToggleOverlay?.Invoke(overlayToggleItem.IsChecked);
+            menu.Items.Add(overlayToggleItem);
+
             menu.Items.Add(new Separator());
 
             var autoStartItem = new MenuItem { Header = "윈도우 시작 시 자동 실행", IsCheckable = true };

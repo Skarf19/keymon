@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Windows.Threading;
 using System.Windows;
-using Microsoft.Win32;            // 절전 모드 대응
+using Microsoft.Win32;
 
 namespace Keymon
 {
@@ -35,13 +35,11 @@ namespace Keymon
             _tray = tray;
             _persistence = persistence;
 
-            // 서비스 생성 시 자동으로 데이터 복원
             _persistence.Load(_engine, _collector);
         }
 
         public void Start()
         {
-            // 전원(절전) 및 세션(잠금) 상태 변경 감지 모두 구독
             SystemEvents.PowerModeChanged += OnPowerModeChanged;
             SystemEvents.SessionSwitch += OnSessionSwitch;
 
@@ -55,8 +53,6 @@ namespace Keymon
             _timer?.Stop();
             SystemEvents.PowerModeChanged -= OnPowerModeChanged;
             SystemEvents.SessionSwitch -= OnSessionSwitch;
-
-            // 앱 종료 전 안전하게 데이터 저장
             _persistence.Save(_engine, _collector);
         }
 
@@ -76,7 +72,6 @@ namespace Keymon
         // 자리 비움 (절전, 잠금): 시간을 멈추고 현재 상태를 보존
         private void HandleSystemInactive()
         {
-            // UI 메인 스레드에게 안전하게 실행해달라고 위임합니다.
             Application.Current.Dispatcher.Invoke(() =>
             {
                 _timer?.Stop();
@@ -115,10 +110,29 @@ namespace Keymon
         private void OnTick(object? sender, EventArgs e)
         {
             DateTime now = DateTime.Now;
-            _tickCounter++;
 
             _collector.Tick(now);
             _lastSnapshot = _collector.GetSnapshot();
+
+            int currentApm = _lastSnapshot.Kpm + _lastSnapshot.Mpm + _lastSnapshot.ScrollCount;
+
+            if (_engine.IsStandby)
+            {
+                if (currentApm > 0)
+                {
+                    _engine.WakeUp();
+                    _tickCounter = 0;
+                    _collector.ResetTimingAccumulators();
+                }
+                else
+                {
+                    UpdateTrayTooltip();
+                    _unity.SendState(_engine.FocusState);
+                    return;
+                }
+            }
+
+            _tickCounter++;
 
             _engine.UpdateRealtimeStatus(
                 _lastSnapshot.Kpm,
@@ -139,7 +153,7 @@ namespace Keymon
                     _lastSnapshot.Kpm,
                     _lastSnapshot.Mpm + _lastSnapshot.ScrollCount,
                     _lastSnapshot.BackspaceCount,
-                    _lastSnapshot.MaxConsecutiveBackspaces, // 👈 추가된 부분!
+                    _lastSnapshot.MaxConsecutiveBackspaces,
                     _lastSnapshot.JerkCount,
                     _lastSnapshot.ContextSwitchCount,
                     avgDt,
@@ -171,14 +185,22 @@ namespace Keymon
 
         private void UpdateTrayTooltip()
         {
-            if (!_engine.IsFirstAnalysisComplete)
+            _tray.IsStandby = _engine.IsStandby;
+
+            if (_engine.IsStandby)
             {
-                _tray.UpdateTooltip($"⏳ 패턴 분석 중... ({60 - _tickCounter}초)");
+                _tray.UpdateTooltip("대기 모드 (수집 일시정지)");
                 return;
             }
-            string[] stateNames = { "Idle ☕", "Distracted 😵‍💫", "Engaged 🙂", "Focused 🤓", "Deep Focus 🔥" };
+
+            if (!_engine.IsFirstAnalysisComplete)
+            {
+                _tray.UpdateTooltip($"패턴 분석 중... ({60 - _tickCounter}초)");
+                return;
+            }
+            string[] stateNames = { "Idle", "Distracted", "Engaged", "Focused", "Deep Focus" };
             string stateText = stateNames[Math.Clamp(_engine.FocusState, 0, 4)];
-            _tray.UpdateTooltip($"🎯 {stateText} ({_engine.FocusScore}%)\nKPM: {_lastSnapshot.Kpm} | 창 전환: {_lastSnapshot.ContextSwitchCount}회");
+            _tray.UpdateTooltip($"{stateText} ({_engine.FocusScore}%)\nKPM: {_lastSnapshot.Kpm} | 창 전환: {_lastSnapshot.ContextSwitchCount}회");
             _tray.UpdateAnimationByState(_engine.FocusState);
         }
 
@@ -199,5 +221,7 @@ namespace Keymon
         public string StateReason => _engine.StateReason;
         public List<int> HistoryScores => new List<int>(_historyScores);
         public List<int> HistoryFatigue => new List<int>(_historyFatigue);
+
+        public bool IsStandby => _engine.IsStandby;
     }
 }

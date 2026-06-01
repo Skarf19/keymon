@@ -70,7 +70,7 @@ namespace Keymon
             BarUpdate.Value = remaining;
 
             // 첫 60초 분석 전: 대기 애니메이션 표시
-            if (!_session.IsFirstAnalysisComplete)
+            if (!_session.IsFirstAnalysisComplete && !_session.IsStandby)
             {
                 TxtStatus.Text = "나의 집중 패턴 모니터링";
                 TxtCharacter.Text = "⏳";
@@ -101,24 +101,35 @@ namespace Keymon
             string desc = "";
             Color glowColor = Colors.LightGray;
 
-            // switch 문: focusState 값에 따라 다른 케이스를 실행합니다.
-            switch (focusState)
+            if (_session.IsStandby)
             {
-                case 4:
-                    targetState = "AnimDeepFocus"; emoji = "🔥"; title = "Deep Focus";
-                    desc = "최상의 효율입니다! 이대로 쭉 가보세요."; glowColor = Colors.OrangeRed; break;
-                case 3:
-                    targetState = "AnimFocused"; emoji = "🤓"; title = "Focused";
-                    desc = "안정적인 집중 상태입니다."; glowColor = Colors.DodgerBlue; break;
-                case 2:
-                    targetState = "AnimEngaged"; emoji = "🙂"; title = "Engaged";
-                    desc = "보통 수준의 활동을 유지하고 있습니다."; glowColor = Colors.LightGreen; break;
-                case 1:
-                    targetState = "AnimDistracted"; emoji = "😵‍💫"; title = "Distracted";
-                    desc = "주의가 분산되었습니다! 업무 효율이 급감 중입니다."; glowColor = Colors.Gold; break;
-                default:
-                    targetState = "AnimIdle"; emoji = "⚠️"; title = "IDLE (정지됨)";
-                    desc = "APM 15 미만으로 업무 효율 낮음 - 지속적인 도움 필요 🆘"; glowColor = Colors.IndianRed; break;
+                targetState = "AnimIdle";
+                emoji = "💤";
+                title = "Standby (수집 일시정지)";
+                desc = "비입력 감지로 데이터 오염을 방지하고 있습니다.";
+                glowColor = Colors.DarkGray;
+            }
+            else
+            {
+                // switch 문: focusState 값에 따라 다른 케이스를 실행합니다.
+                switch (focusState)
+                {
+                    case 4:
+                        targetState = "AnimDeepFocus"; emoji = "🔥"; title = "Deep Focus";
+                        desc = "최상의 효율입니다! 이대로 쭉 가보세요."; glowColor = Colors.OrangeRed; break;
+                    case 3:
+                        targetState = "AnimFocused"; emoji = "🤓"; title = "Focused";
+                        desc = "안정적인 집중 상태입니다."; glowColor = Colors.DodgerBlue; break;
+                    case 2:
+                        targetState = "AnimEngaged"; emoji = "🙂"; title = "Engaged";
+                        desc = "보통 수준의 활동을 유지하고 있습니다."; glowColor = Colors.LightGreen; break;
+                    case 1:
+                        targetState = "AnimDistracted"; emoji = "😵‍💫"; title = "Distracted";
+                        desc = "주의가 분산되었습니다! 업무 효율이 급감 중입니다."; glowColor = Colors.Gold; break;
+                    default:
+                        targetState = "AnimIdle"; emoji = "⚠️"; title = "IDLE (정지됨)";
+                        desc = "APM 15 미만으로 업무 효율 낮음 - 지속적인 도움 필요 🆘"; glowColor = Colors.IndianRed; break;
+                }
             }
 
             TxtCharacter.Text = emoji;
