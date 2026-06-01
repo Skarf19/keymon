@@ -214,8 +214,8 @@ namespace Keymon
                 _minuteCounter = 0;
             }
 
-            // [5] 최종 집중도 점수 산출 (페널티 적용)
-            double zErPositive = Math.Max(0, zEr);
+                // [5] 최종 집중도 점수 산출 (페널티 적용)
+                double zErPositive = Math.Max(0, zEr);
             double erPenalty = zErPositive > 1.0 ? Math.Pow(zErPositive, 1.5) * 10 : zErPositive * 5; // 오타율 비선형 페널티
             double csrPenalty = Math.Pow(csr, 1.5) * 1.5;
             double speedBonus = Math.Clamp((zKpm * 10) + (mpm * 0.1), -20, 25);

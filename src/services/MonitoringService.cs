@@ -148,6 +148,7 @@ namespace Keymon
                 double avgDt = _lastSnapshot.AvgDwellTime > 0 ? _lastSnapshot.AvgDwellTime : _engine.PersonalEmaDt;
                 double avgFt = _lastSnapshot.AvgFlightTime > 0 ? _lastSnapshot.AvgFlightTime : _engine.PersonalEmaFt;
 
+                // 💡 수정 3: 매개변수 4번째 자리에 _lastSnapshot.MaxConsecutiveBackspaces 를 추가합니다!
                 _engine.PerformDeepAnalysis(
                     _lastSnapshot.Kpm,
                     _lastSnapshot.Mpm + _lastSnapshot.ScrollCount,
