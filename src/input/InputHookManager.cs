@@ -14,8 +14,6 @@ namespace Keymon
         public event EventHandler<KeyboardHookEventArgs>? KeyReleased;
         public event EventHandler<MouseHookEventArgs>? MousePressed;
         public event EventHandler<MouseHookEventArgs>? MouseMoved;
-
-        // 마우스 휠 이벤트 선언
         public event EventHandler<MouseWheelHookEventArgs>? MouseWheel;
 
         public void Start()
@@ -25,13 +23,13 @@ namespace Keymon
             _globalHook = new TaskPoolGlobalHook();
 
             // SharpHook의 이벤트를 그대로 토스합니다.
-            _globalHook.KeyPressed += (s, e) => KeyPressed?.Invoke(this, e);
-            _globalHook.KeyReleased += (s, e) => KeyReleased?.Invoke(this, e);
-            _globalHook.MousePressed += (s, e) => MousePressed?.Invoke(this, e);
-            _globalHook.MouseMoved += (s, e) => MouseMoved?.Invoke(this, e);
+            _globalHook.KeyPressed += OnHookKeyPressed;
+            _globalHook.KeyReleased += OnHookKeyReleased;
+            _globalHook.MousePressed += OnHookMousePressed;
+            _globalHook.MouseMoved += OnHookMouseMoved;
+            _globalHook.MouseWheel += OnHookMouseWheel;
 
-            // 휠 이벤트를 밖으로 토스 👇👇
-            _globalHook.MouseWheel += (s, e) => MouseWheel?.Invoke(this, e);
+        
 
             Task.Run(() => _globalHook.Run());
         }
@@ -40,6 +38,13 @@ namespace Keymon
         {
             if (_globalHook != null)
             {
+            
+                _globalHook.KeyPressed -= OnHookKeyPressed;
+                _globalHook.KeyReleased -= OnHookKeyReleased;
+                _globalHook.MousePressed -= OnHookMousePressed;
+                _globalHook.MouseMoved -= OnHookMouseMoved;
+                _globalHook.MouseWheel -= OnHookMouseWheel;
+
                 _globalHook.Dispose();
                 _globalHook = null;
             }
@@ -49,5 +54,11 @@ namespace Keymon
         {
             Stop();
         }
+
+        private void OnHookKeyPressed(object? sender, KeyboardHookEventArgs e) => KeyPressed?.Invoke(this, e);
+        private void OnHookKeyReleased(object? sender, KeyboardHookEventArgs e) => KeyReleased?.Invoke(this, e);
+        private void OnHookMousePressed(object? sender, MouseHookEventArgs e) => MousePressed?.Invoke(this, e);
+        private void OnHookMouseMoved(object? sender, MouseHookEventArgs e) => MouseMoved?.Invoke(this, e);
+        private void OnHookMouseWheel(object? sender, MouseWheelHookEventArgs e) => MouseWheel?.Invoke(this, e);
     }
 }

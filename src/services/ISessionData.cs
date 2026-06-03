@@ -64,5 +64,7 @@ namespace Keymon
         List<int> HistoryFatigue { get; }
 
         bool IsStandby { get; }
+
+        Dictionary<string, DailyStat> DailyStats { get; }
     }
 }
