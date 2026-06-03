@@ -59,12 +59,12 @@ namespace Keymon
         // ---------------------------------------------------------
         // 3. 외부 노출용 분석 결과 (모니터링/UI 계층 바인딩용)
         // ---------------------------------------------------------
-        public int FocusScore { get; private set; }        // 최종 산출된 집중도 점수 (0~100)
+        public int FocusScore { get;  set; }        // 최종 산출된 집중도 점수 (0~100)
         public int StressScore { get; private set; }       // 오타율 및 거친 마우스 조작 기반 뇌 과부하 수치 (0~100)
         public double FatigueScore { get; set; }  // 누적된 인지적/신체적 피로도 수치 (0~100)
-        public int FocusState { get; private set; }        // 현재 집중 상태 (0:휴식, 1:산만, 2:안정, 3:집중, 4:완벽한 몰입)
+        public int FocusState { get;  set; }        // 현재 집중 상태 (0:휴식, 1:산만, 2:안정, 3:집중, 4:완벽한 몰입)
         public int FatigueState { get; private set; }      // 현재 피로도 경고 상태 (1:안전, 2:주의, 3:위험)
-        public string StateReason { get; private set; } = "데이터 분석 중..."; // 상태 판별 근거 메시지 (UI 출력용)
+        public string StateReason { get;  set; } = "데이터 분석 중..."; // 상태 판별 근거 메시지 (UI 출력용)
         public bool IsFirstAnalysisComplete { get; set; } = false;
 
         // 테스트 및 디버깅용 피로도 누적 배속 (기본값 1.0 = 리얼타임)
