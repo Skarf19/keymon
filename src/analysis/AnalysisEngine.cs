@@ -52,9 +52,10 @@ namespace Keymon
         private int _distractionStreak = 0;
 
         private int _minuteCounter = 0;
-
+        private int _previousState = 2;
         public bool IsStandby { get; private set; } = false;
         private int _idleMinutes = 0;
+        private bool _isRecovering = false;
 
         // ---------------------------------------------------------
         // 3. 외부 노출용 분석 결과 (모니터링/UI 계층 바인딩용)
@@ -267,7 +268,9 @@ namespace Keymon
         // ---------------------------------------------------------
         private void UpdateFatigue(double zKpm, int apm)
         {
-            if (apm < 15)
+            _isRecovering = apm < 15;
+
+            if (_isRecovering)
             {
                 // 짧은 휴식으로도 뇌가 빠르게 회복되는 현실적 메커니즘
                 double recoveryAmount = (2.0 + (FatigueScore * 0.1)) * FatigueTimeScale;
@@ -309,22 +312,9 @@ namespace Keymon
                 FatigueScore = Math.Min(100, FatigueScore + (totalAccumulation * FatigueTimeScale));
             }
 
-            // 피로도 임계치에 따른 상태(FatigueState) 세팅 (NASA-TLX 3단계 척도)
-            if (FatigueScore >= 71) // [3단계: 위험] 인지 능력 한계 도달
-            {
-                FatigueState = 3;
-                StateReason = "[위험] 극심한 피로가 감지되었습니다. 즉시 휴식이 필요합니다.";
-            }
-            else if (FatigueScore >= 31) // [2단계: 주의] 경계심 감소 시작
-            {
-                FatigueState = 2;
-                StateReason = "[주의] 피로가 쌓이기 시작했습니다.";
-            }
-            else // [1단계: 안전] 쾌적 상태
-            {
-                FatigueState = 1;
-                // 평소 상태 사유는 아래 DetermineState에서 덮어씌워짐
-            }
+            if (FatigueScore >= 71) FatigueState = 3;
+            else if (FatigueScore >= 31) FatigueState = 2;
+            else FatigueState = 1;
         }
 
         // ---------------------------------------------------------
@@ -366,10 +356,22 @@ namespace Keymon
                 targetReason = "평소 패턴과 일치하는 안정적인 상태.";
             }
 
+            int rawTargetState = targetState;
             targetState = GetSmoothedState(targetState);
 
-            if (_minuteCounter == 0)
+            if (rawTargetState != targetState)
             {
+                switch (targetState)
+                {
+                    case 0: targetReason = "최근 패턴 분석 결과, 작업 흐름 정지(대기)로 판별됩니다."; break;
+                    case 1: targetReason = "최근 5분간의 흐름을 분석한 결과, 주의력 분산(산만함)이 유지되고 있습니다."; break;
+                    case 2: targetReason = "이전의 안정적인 페이스와 작업 흐름 관성이 유지되고 있습니다."; break;
+                    case 3: targetReason = "이전의 좋은 집중 상태 관성이 계속 유지되고 있습니다."; break;
+                    case 4: targetReason = "깊은 몰입 상태(Zone)의 흐름이 끊기지 않고 지속 중입니다."; break;
+                }
+            }
+
+            
                 // 2. 관성(Hysteresis) 필터 적용: 상향 관성 & 하향 관성
                 if (targetState >= 3)
                 {
@@ -424,7 +426,14 @@ namespace Keymon
                         _distractionStreak = 0;
                     }
                 }
+            
+
+            if (_previousState > FocusState && FocusState < 3)
+            {
+                StateReason = "⚠️ 작업 집중도가 하락하고 있습니다. 흐름을 다시 점검해 보세요.";
             }
+
+            _previousState = FocusState;
 
             // 학술 근거 4: 바우마이스터의 자아 고갈(Ego Depletion) 이론 방어벽 (Hard Capping)
             // 인지적 피로도가 임계치를 넘었을 경우, 가짜 집중을 차단합니다.
@@ -432,22 +441,36 @@ namespace Keymon
             {
                 if (FocusState >= 3)
                 {
-                    // 물리적 타수가 아무리 빨라도 피로도가 위험 수준이면 인지적 상태를 2단계로 강제 격하합니다.
+                    // 물리적 타수가 아무리 빨라도 피로도가 위험 수준이면 인지적 상태를 2단계로 강제 격하
                     FocusState = 2;
                     _deepFocusStreak = 0;
                     _distractionStreak = 0;
-                    StateReason = "물리적 속도는 빠르나, 극심한 피로(Ego Depletion)로 인해 가짜 집중으로 판별됨.";
+                    StateReason = "극심한 피로로 인해 집중도가 강제 격하되었습니다.";
                 }
-                else if (FocusState < 3 && FatigueScore >= 71)
+                else
                 {
-                    // 피로도가 위험이면서 속도도 안 날 때는 기존 경고 메시지 유지
-                    StateReason = "[위험] 극심한 피로가 감지되었습니다. 즉시 휴식이 필요합니다.";
+                    StateReason = _isRecovering
+                        ? "휴식 중입니다. 🌿"
+                        : "[위험] 즉시 휴식이 필요합니다! 🚨";
                 }
             }
-            else if (FatigueState == 2 && FocusState >= 2)
+            else if (FatigueState == 2)
             {
-                // 피로도가 2단계(주의)일 때는 진단 메시지에 경고를 덧붙여 줌
-                StateReason += " ([주의] 피로가 쌓이고 있습니다)";
+                if (_isRecovering)
+                {
+                    StateReason += " (피로 회복 중 🌿)";
+                }
+                else
+                {
+                    StateReason += " (피로 주의 ⚠️)";
+                }
+            }
+            else if (FatigueState == 1)
+            {
+                if (_isRecovering && FatigueScore >= 5)
+                {
+                    StateReason = "잠깐의 휴식으로 에너지를 충전 중입니다. 🔋";
+                }
             }
         }
 

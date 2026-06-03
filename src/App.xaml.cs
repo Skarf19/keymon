@@ -1,5 +1,6 @@
 using System;
 using System.Windows;
+using System.Threading.Tasks;
 
 namespace Keymon
 {
@@ -20,6 +21,15 @@ namespace Keymon
         {
             base.OnStartup(e);
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
+            TaskScheduler.UnobservedTaskException += (sender, args) =>
+            {
+                // SharpHook 큐 파괴 에러라면 앱을 죽이지 않고 조용히 넘깁니다.
+                if (args.Exception.InnerException is ObjectDisposedException)
+                {
+                    args.SetObserved();
+                }
+            };
 
             _engine = new AnalysisEngine();
             _hookManager = new InputHookManager();

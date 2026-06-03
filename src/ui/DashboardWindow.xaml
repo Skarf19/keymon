@@ -92,8 +92,8 @@
 										</TransformGroup>
 									</TextBlock.RenderTransform>
 								</TextBlock>
-								<TextBlock x:Name="TxtStateTitle" Text="패턴 분석 준비" FontSize="32" FontWeight="Heavy" Foreground="#475569" HorizontalAlignment="Center"/>
-								<TextBlock x:Name="TxtCharState" Text="데이터를 불러오고 있습니다..." FontSize="16" Foreground="#64748B" HorizontalAlignment="Center" Margin="0,10,0,0"/>
+								<TextBlock x:Name="TxtStateTitle" Text="패턴 분석 준비" FontSize="32" FontWeight="Heavy" Foreground="#475569" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"/>
+								<TextBlock x:Name="TxtCharState" Text="데이터를 불러오고 있습니다..." FontSize="16" Foreground="#64748B" HorizontalAlignment="Center" Margin="0,10,0,0" TextWrapping="Wrap" TextAlignment="Center"/>
 								<Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="15" Margin="0,15,0,0" Width="500">
 									<StackPanel>
 										<TextBlock Text="💡 데이터 기반 상태 진단" FontWeight="Bold" FontSize="13" Foreground="#475569" Margin="0,0,0,8"/>

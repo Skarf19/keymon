@@ -90,18 +90,31 @@ namespace Keymon
                     "좋은 몰입도를 유지하고 있습니다.",
                     "최고의 효율! 고도의 몰입 상태입니다."
                 };
-
                 string[] stateEmojis = { "💤", "👀", "😌", "💻", "🔥" };
 
                 int currentState = Math.Clamp(_session.FocusState, 0, 4);
 
-                // 화면의 큰 제목과 설명을 진짜 상태에 맞게 즉시 업데이트
-                TxtStateTitle.Text = stateTitles[currentState];
-                TxtCharState.Text = stateDescs[currentState];
+                // 1. 기본 상태 정보 가져오기
+                string finalTitle = stateTitles[currentState];
+                string finalDesc = stateDescs[currentState];
+                string finalEmoji = stateEmojis[currentState];
 
-                TxtCharacter.Text = stateEmojis[currentState];
+                // 2. 극심한 피로(위험) 상태라면 UI를 강제로 덮어씌움
+                if (_session.FatigueScore >= 71)
+                {
+                    finalTitle = "탈진 (휴식 필요)";
+                    finalEmoji = "😵";
+                    finalDesc = "인지 능력이 한계에 도달했습니다. 즉시 휴식이 필요합니다. 🚨";
+                }
 
-                // 애니메이션 및 컬러 업데이트
+                // 3. UI에 즉시 반영
+                TxtStateTitle.Text = finalTitle;
+                TxtCharacter.Text = finalEmoji;
+                TxtCharState.Text = finalDesc;
+
+                // 아래 TxtReason은 하단 박스에 그대로 엔진의 상세 사유를 출력
+                TxtReason.Text = _session.StateReason;
+
                 UpdateCharacterAnimation(_session.FocusState);
             }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"실시간 UI 업데이트 실패: {ex.Message}"); }
