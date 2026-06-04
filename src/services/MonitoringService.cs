@@ -31,6 +31,8 @@ namespace Keymon
 
         private MetricSnapshot _lastSnapshot = new(0, 0, 0, 0, 0, 0, 0, 0, 0);
 
+        public bool IsManualStandby { get; private set; } = false;
+
         public MonitoringService(MetricCollector collector, AnalysisEngine engine, UnityBridge unity, TrayIconManager tray, PersistenceService persistence)
         {
             _collector = collector;
@@ -65,6 +67,20 @@ namespace Keymon
             SystemEvents.PowerModeChanged -= OnPowerModeChanged;
             SystemEvents.SessionSwitch -= OnSessionSwitch;
             _persistence.Save(_engine, _collector, this);
+        }
+
+        public void ToggleManualStandby()
+        {
+            IsManualStandby = !IsManualStandby;
+            if (IsManualStandby)
+            {
+                _collector.ResetTimingAccumulators();
+            }
+            else
+            {
+                _engine.WakeUp();
+                _tickCounter = 0;
+            }
         }
 
         private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
@@ -120,6 +136,15 @@ namespace Keymon
         {
             DateTime now = DateTime.Now;
             _collector.Tick(now);
+
+            if (IsManualStandby)
+            {
+                UpdateDailyStat(isStandby: true);
+                UpdateTrayTooltip();
+                _unity.SendState(0);
+                return;
+            }
+
             _lastSnapshot = _collector.GetSnapshot();
             int currentApm = _lastSnapshot.Kpm + _lastSnapshot.Mpm + _lastSnapshot.ScrollCount;
 
@@ -206,24 +231,23 @@ namespace Keymon
                 var stat = _dailyStats[today];
                 stat.StateCounts ??= new int[5];
                 stat.HourlyMinutes ??= new int[24];
-                stat.HourlyActiveMinutes ??= new int[24]; // 이 배열은 차트용으로 유지
+                stat.HourlyActiveMinutes ??= new int[24];
 
-                stat.TotalMinutes++; // 앱 실행 총 시간
+                stat.TotalMinutes++;
                 stat.HourlyMinutes[hour]++;
 
                 if (isStandby)
                 {
-                    stat.StateCounts[0]++; // Idle 증가
+                    stat.StateCounts[0]++;
                 }
                 else
                 {
-                    // 💡 핵심: '작업 중'일 때만 점수와 집중 상태를 기록함
                     stat.TotalActiveMinutes++;
                     stat.TotalFocusSum += _engine.FocusScore;
                     stat.TotalFatigueSum += (int)_engine.FatigueScore;
 
                     int stateIdx = Math.Clamp(_engine.FocusState, 0, 4);
-                    stat.StateCounts[stateIdx]++; // 산만, 안정, 집중, 몰입 중 하나 증가
+                    stat.StateCounts[stateIdx]++;
 
                     stat.HourlyFocusSum[hour] += _engine.FocusScore;
                     stat.HourlyFatigueSum[hour] += (int)_engine.FatigueScore;
@@ -270,6 +294,13 @@ namespace Keymon
 
         private void UpdateTrayTooltip()
         {
+            if (IsManualStandby)
+            {
+                _tray.IsStandby = true;
+                _tray.UpdateTooltip("⏸️ 모니터링 일시 정지 (수동 대기)");
+                return;
+            }
+
             _tray.IsStandby = _engine.IsStandby;
 
             if (_engine.IsStandby)

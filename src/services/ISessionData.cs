@@ -65,6 +65,8 @@ namespace Keymon
 
         bool IsStandby { get; }
 
+        bool IsManualStandby { get; }
+
         Dictionary<string, DailyStat> DailyStats { get; }
     }
 }

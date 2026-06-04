@@ -28,6 +28,9 @@ namespace Keymon
         public Action? OnExit;
         public Action<bool>? OnToggleOverlay;
 
+        public Action? OnToggleManualStandby;
+        private MenuItem? _manualStandbyItem;
+
         public bool IsStandby { get; set; } = false;
 
         public void Initialize()
@@ -165,6 +168,12 @@ namespace Keymon
 
             menu.Items.Add(new Separator());
 
+            _manualStandbyItem = new MenuItem { Header = "분석 일시 정지 (수동)", IsCheckable = true };
+            _manualStandbyItem.Click += (s, e) => OnToggleManualStandby?.Invoke();
+            menu.Items.Add(_manualStandbyItem);
+
+            menu.Items.Add(new Separator());
+
             var overlayToggleItem = new MenuItem { Header = "오버레이 창 표시", IsCheckable = true, IsChecked = true };
             overlayToggleItem.Click += (s, e) => OnToggleOverlay?.Invoke(overlayToggleItem.IsChecked);
             menu.Items.Add(overlayToggleItem);
@@ -188,6 +197,12 @@ namespace Keymon
             menu.Items.Add(exitItem);
 
             return menu;
+        }
+
+        public void SyncManualStandbyState(bool isManualStandby)
+        {
+            if (_manualStandbyItem != null)
+                _manualStandbyItem.IsChecked = isManualStandby;
         }
 
         private void ToggleAutoStart(MenuItem item)

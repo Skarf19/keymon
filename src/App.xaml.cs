@@ -24,7 +24,6 @@ namespace Keymon
 
             TaskScheduler.UnobservedTaskException += (sender, args) =>
             {
-                // SharpHook 큐 파괴 에러라면 앱을 죽이지 않고 조용히 넘깁니다.
                 if (args.Exception.InnerException is ObjectDisposedException)
                 {
                     args.SetObserved();
@@ -50,6 +49,12 @@ namespace Keymon
             {
                 if (isVisible) _overlayWindow?.Show();
                 else _overlayWindow?.Hide();
+            };
+
+            _tray.OnToggleManualStandby = () =>
+            {
+                _monitoring.ToggleManualStandby();
+                _tray.SyncManualStandbyState(_monitoring.IsManualStandby);
             };
 
             _tray.Initialize();

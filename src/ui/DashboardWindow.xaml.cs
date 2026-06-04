@@ -35,7 +35,29 @@ namespace Keymon
         {
             try
             {
-                // 1. 실시간 데이터 갱신
+                if (_session.IsManualStandby)
+                {
+                    if (FindName("BtnManualStandby") is System.Windows.Controls.Primitives.ToggleButton btn)
+                        btn.IsChecked = true;
+
+                    TxtStatus.Text = "나의 집중 패턴 모니터링";
+                    TxtStateTitle.Text = "수동 대기 모드";
+                    TxtCharacter.Text = "⏸️";
+                    TxtCharState.Text = "분석이 일시 정지되었습니다. (개인 시간)";
+                    TxtReason.Text = "영상 시청 또는 휴식을 위해 데이터 분석을 멈추었습니다.";
+
+                    TxtKpm.Text = "-"; TxtMpm.Text = "-"; TxtApm.Text = "-";
+                    TxtFocus.Text = "- %"; TxtEr.Text = "- 회"; TxtCsr.Text = "- 번"; TxtJerk.Text = "- 회"; TxtFatigue.Text = "- 점";
+                    BarUpdate.Value = 0; TxtUpdateSec.Text = "중지";
+
+                    return;
+                }
+                else
+                {
+                    if (FindName("BtnManualStandby") is System.Windows.Controls.Primitives.ToggleButton btn)
+                        btn.IsChecked = false;
+                }
+
                 TxtKpm.Text = _session.CurrentKpm.ToString();
                 TxtMpm.Text = _session.CurrentMpm.ToString();
                 TxtApm.Text = _session.CurrentApm.ToString();
@@ -58,7 +80,6 @@ namespace Keymon
                     RefreshDailyTab();
                 }
 
-                // 2. 상태 체크 (데이터 로드 완료 여부)
                 bool isDataReady = _session.IsFirstAnalysisComplete || _session.HistoryScores.Count > 0;
 
                 if (isDataReady && TxtCharacter.Text == "⏳")
@@ -67,7 +88,6 @@ namespace Keymon
                     _currentAnimState = "";
                 }
 
-                // 3. 아직 진짜 데이터가 없는 '완전 초기' 상태일 때만 모래시계 띄움
                 if (!isDataReady && !_session.IsStandby)
                 {
                     TxtStatus.Text = "나의 집중 패턴 모니터링"; TxtCharacter.Text = "⏳";
@@ -77,9 +97,6 @@ namespace Keymon
                     return;
                 }
 
-                // =========================================================
-                // 💡 4. [핵심 해결] 엔진의 상태(0~4)를 우리가 원하는 텍스트로 강제 변환!
-                // =========================================================
                 TxtStatus.Text = "나의 집중 패턴 모니터링";
 
                 string[] stateTitles = { "IDLE (대기)", "산만", "평안 (안정)", "집중", "초집중" };
@@ -94,12 +111,10 @@ namespace Keymon
 
                 int currentState = Math.Clamp(_session.FocusState, 0, 4);
 
-                // 1. 기본 상태 정보 가져오기
                 string finalTitle = stateTitles[currentState];
                 string finalDesc = stateDescs[currentState];
                 string finalEmoji = stateEmojis[currentState];
 
-                // 2. 극심한 피로(위험) 상태라면 UI를 강제로 덮어씌움
                 if (_session.FatigueScore >= 71)
                 {
                     finalTitle = "탈진 (휴식 필요)";
@@ -107,12 +122,10 @@ namespace Keymon
                     finalDesc = "인지 능력이 한계에 도달했습니다. 즉시 휴식이 필요합니다. 🚨";
                 }
 
-                // 3. UI에 즉시 반영
                 TxtStateTitle.Text = finalTitle;
                 TxtCharacter.Text = finalEmoji;
                 TxtCharState.Text = finalDesc;
 
-                // 아래 TxtReason은 하단 박스에 그대로 엔진의 상세 사유를 출력
                 TxtReason.Text = _session.StateReason;
 
                 UpdateCharacterAnimation(_session.FocusState);
@@ -198,7 +211,6 @@ namespace Keymon
             if (!_session.DailyStats.ContainsKey(_selectedDateString)) return;
             var stat = _session.DailyStats[_selectedDateString];
 
-            // 안전 방어막
             stat.HourlyActiveMinutes ??= new int[24];
             stat.HourlyMinutes ??= new int[24];
             stat.HourlyFocusSum ??= new int[24];
@@ -207,27 +219,21 @@ namespace Keymon
             bool isToday = _selectedDateString == DateTime.Now.ToString("yyyy-MM-dd");
             int currentHour = DateTime.Now.Hour;
 
-            // 💡 1. 0~23시 전체를 도는 대신, '실제 작업이 기록된 시간'만 골라냅니다.
             List<int> activeHours = new List<int>();
             for (int h = 0; h < 24; h++)
             {
-                // 오늘 데이터일 경우, 미확정인 현재 시간과 미래는 제외 (정각 확정 시스템 유지)
                 if (isToday && h >= currentHour) continue;
-
-                // 데이터가 존재하는 시간만 리스트에 추가
                 if (stat.HourlyMinutes[h] > 0 && stat.HourlyActiveMinutes[h] > 0)
                 {
                     activeHours.Add(h);
                 }
             }
 
-            // 그릴 데이터가 아예 없다면 종료
             if (activeHours.Count == 0) return;
 
             double width = 580; double height = 130; double maxVal = 100;
-            double paddingX = 25; // 💡 숫자가 잘리지 않도록 좌우 여백을 조금 더 넓혔습니다.
+            double paddingX = 25;
 
-            // 💡 2. 작업한 시간이 1개면 정중앙에, 여러 개면 간격을 계산해서 넓게 펼칩니다.
             double stepX = activeHours.Count > 1 ? (width - paddingX * 2) / (activeHours.Count - 1) : 0;
 
             Polyline focusLine = new Polyline { Stroke = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3B82F6")), StrokeThickness = 2 };
@@ -237,7 +243,6 @@ namespace Keymon
             {
                 int h = activeHours[i];
 
-                // 점의 X 좌표 계산 (데이터가 1개일 때는 가운데 정렬)
                 double x = activeHours.Count == 1 ? width / 2 : paddingX + (i * stepX);
 
                 double fScore = (double)stat.HourlyFocusSum[h] / stat.HourlyActiveMinutes[h];
@@ -249,14 +254,10 @@ namespace Keymon
                 focusLine.Points.Add(new Point(x, focusY));
                 fatigueLine.Points.Add(new Point(x, fatigueY));
 
-                // --------------------------------------------------
-                // 🔵 집중도 점과 숫자 그리기
-                // --------------------------------------------------
                 Ellipse focusDot = new Ellipse { Width = 8, Height = 8, Fill = new SolidColorBrush(Colors.White), Stroke = focusLine.Stroke, StrokeThickness = 2 };
                 Canvas.SetLeft(focusDot, x - 4); Canvas.SetTop(focusDot, focusY - 4);
                 DailyChartCanvas.Children.Add(focusDot);
 
-                // 💡 집중도 숫자 라벨 (점의 약간 위쪽에 표시)
                 TextBlock focusValLabel = new TextBlock
                 {
                     Text = Math.Round(fScore).ToString(),
@@ -267,14 +268,10 @@ namespace Keymon
                 Canvas.SetLeft(focusValLabel, x - 8); Canvas.SetTop(focusValLabel, focusY - 18);
                 DailyChartCanvas.Children.Add(focusValLabel);
 
-                // --------------------------------------------------
-                // 🟠 피로도 점과 숫자 그리기
-                // --------------------------------------------------
                 Ellipse fatigueDot = new Ellipse { Width = 8, Height = 8, Fill = new SolidColorBrush(Colors.White), Stroke = fatigueLine.Stroke, StrokeThickness = 2 };
                 Canvas.SetLeft(fatigueDot, x - 4); Canvas.SetTop(fatigueDot, fatigueY - 4);
                 DailyChartCanvas.Children.Add(fatigueDot);
 
-                // 💡 피로도 숫자 라벨 (점의 약간 아래쪽에 표시하여 글자 겹침 방지)
                 TextBlock fatigueValLabel = new TextBlock
                 {
                     Text = Math.Round(fFatigue).ToString(),
@@ -285,9 +282,6 @@ namespace Keymon
                 Canvas.SetLeft(fatigueValLabel, x - 8); Canvas.SetTop(fatigueValLabel, fatigueY + 6);
                 DailyChartCanvas.Children.Add(fatigueValLabel);
 
-                // --------------------------------------------------
-                // ⏱️ X축 시간대 라벨 (해당 시간대 밑에 고정)
-                // --------------------------------------------------
                 TextBlock timeLabel = new TextBlock
                 {
                     Text = $"{h}시",
@@ -339,6 +333,15 @@ namespace Keymon
                 TextBlock pctTb = new TextBlock { Text = $"{pct}%", FontSize = 12, Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#94A3B8")), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center }; Grid.SetColumn(pctTb, 4); row.Children.Add(pctTb);
 
                 StateDistributionPanel.Children.Add(row);
+            }
+        }
+
+        private void BtnManualStandby_Click(object sender, RoutedEventArgs e)
+        {
+            if (_session is MonitoringService service)
+            {
+                service.ToggleManualStandby();
+                UpdateRealTimeTab(null, EventArgs.Empty);
             }
         }
 
