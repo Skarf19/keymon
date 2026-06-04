@@ -1,5 +1,6 @@
 using System;
 using System.Windows;
+using System.Threading.Tasks;
 
 namespace Keymon
 {
@@ -21,6 +22,14 @@ namespace Keymon
             base.OnStartup(e);
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
+            TaskScheduler.UnobservedTaskException += (sender, args) =>
+            {
+                if (args.Exception.InnerException is ObjectDisposedException)
+                {
+                    args.SetObserved();
+                }
+            };
+
             _engine = new AnalysisEngine();
             _hookManager = new InputHookManager();
             _collector = new MetricCollector();
@@ -40,6 +49,12 @@ namespace Keymon
             {
                 if (isVisible) _overlayWindow?.Show();
                 else _overlayWindow?.Hide();
+            };
+
+            _tray.OnToggleManualStandby = () =>
+            {
+                _monitoring.ToggleManualStandby();
+                _tray.SyncManualStandbyState(_monitoring.IsManualStandby);
             };
 
             _tray.Initialize();

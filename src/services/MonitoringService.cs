@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Windows.Threading;
 using System.Windows;
+using System.Windows.Threading;
 using Microsoft.Win32;
 
 namespace Keymon
@@ -20,12 +20,18 @@ namespace Keymon
 
         private DispatcherTimer? _timer;
         private int _tickCounter;
+        private int _totalSessionTicks = 0;
         private DateTime _inactiveStartTime;
         private readonly List<int> _historyScores = new();
         private readonly List<int> _historyStates = new();
         private readonly List<int> _historyFatigue = new();
 
+        private readonly Dictionary<string, DailyStat> _dailyStats = new();
+        public Dictionary<string, DailyStat> DailyStats => new Dictionary<string, DailyStat>(_dailyStats);
+
         private MetricSnapshot _lastSnapshot = new(0, 0, 0, 0, 0, 0, 0, 0, 0);
+
+        public bool IsManualStandby { get; private set; } = false;
 
         public MonitoringService(MetricCollector collector, AnalysisEngine engine, UnityBridge unity, TrayIconManager tray, PersistenceService persistence)
         {
@@ -35,7 +41,14 @@ namespace Keymon
             _tray = tray;
             _persistence = persistence;
 
-            _persistence.Load(_engine, _collector);
+            _persistence.Load(_engine, _collector, this);
+
+            // 로드 직후 과거 데이터가 있다면, 시작하자마자 60초를 채운 것으로 간주!
+            if (_engine.IsFirstAnalysisComplete || _historyScores.Count > 0)
+            {
+                _engine.IsFirstAnalysisComplete = true;
+                _tickCounter = 60;
+            }
         }
 
         public void Start()
@@ -53,10 +66,23 @@ namespace Keymon
             _timer?.Stop();
             SystemEvents.PowerModeChanged -= OnPowerModeChanged;
             SystemEvents.SessionSwitch -= OnSessionSwitch;
-            _persistence.Save(_engine, _collector);
+            _persistence.Save(_engine, _collector, this);
         }
 
-        // --- 절전 모드 대응 로직 ---
+        public void ToggleManualStandby()
+        {
+            IsManualStandby = !IsManualStandby;
+            if (IsManualStandby)
+            {
+                _collector.ResetTimingAccumulators();
+            }
+            else
+            {
+                _engine.WakeUp();
+                _tickCounter = 0;
+            }
+        }
+
         private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
         {
             if (e.Mode == PowerModes.Suspend) HandleSystemInactive();
@@ -69,18 +95,16 @@ namespace Keymon
             else if (e.Reason == SessionSwitchReason.SessionUnlock) HandleSystemActive();
         }
 
-        // 자리 비움 (절전, 잠금): 시간을 멈추고 현재 상태를 보존
         private void HandleSystemInactive()
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
                 _timer?.Stop();
                 _inactiveStartTime = DateTime.Now;
-                _persistence.Save(_engine, _collector);
+                _persistence.Save(_engine, _collector, this);
             });
         }
 
-        // 복귀 (깨어남, 잠금 해제): 멈췄던 시간을 그대로 다시 재생
         private void HandleSystemActive()
         {
             Application.Current.Dispatcher.Invoke(() =>
@@ -98,6 +122,7 @@ namespace Keymon
         public void Reset()
         {
             _tickCounter = 0;
+            _totalSessionTicks = 0;
             _historyScores.Clear();
             _historyStates.Clear();
             _historyFatigue.Clear();
@@ -110,13 +135,26 @@ namespace Keymon
         private void OnTick(object? sender, EventArgs e)
         {
             DateTime now = DateTime.Now;
-
             _collector.Tick(now);
-            _lastSnapshot = _collector.GetSnapshot();
 
+            if (IsManualStandby)
+            {
+                UpdateDailyStat(isStandby: true);
+                UpdateTrayTooltip();
+                _unity.SendState(0);
+                return;
+            }
+
+            _lastSnapshot = _collector.GetSnapshot();
             int currentApm = _lastSnapshot.Kpm + _lastSnapshot.Mpm + _lastSnapshot.ScrollCount;
 
-            if (_engine.IsStandby)
+            // 앱이 켜진 후 흐른 총 시간(초)
+            _totalSessionTicks++;
+
+            bool isWarmUpPeriod = _totalSessionTicks <= 300;
+
+            // 5분이 지나기 전까지는 엔진이 '대기(Standby)'라고 판정해도 무시하고 예전 상태를 유지합니다.
+            if (_engine.IsStandby && !isWarmUpPeriod)
             {
                 if (currentApm > 0)
                 {
@@ -126,6 +164,12 @@ namespace Keymon
                 }
                 else
                 {
+                    _tickCounter++;
+                    if (_tickCounter >= 60)
+                    {
+                        UpdateDailyStat(isStandby: true);
+                        _tickCounter = 0;
+                    }
                     UpdateTrayTooltip();
                     _unity.SendState(_engine.FocusState);
                     return;
@@ -134,21 +178,22 @@ namespace Keymon
 
             _tickCounter++;
 
+            // 실시간 상태 하락(Drop) 역시 5분(300틱) 동안은 절대 발생하지 않도록 방어합니다.
+            bool isSafeToDrop = _engine.IsFirstAnalysisComplete && !isWarmUpPeriod;
+
             _engine.UpdateRealtimeStatus(
                 _lastSnapshot.Kpm,
                 _lastSnapshot.Mpm + _lastSnapshot.ScrollCount,
                 _lastSnapshot.ContextSwitchCount,
-                _engine.IsFirstAnalysisComplete
+                isSafeToDrop
             );
 
             if (_tickCounter >= 60)
             {
                 _engine.TotalAccumulatedKeys = _collector.TotalAccumulatedKeys;
-
                 double avgDt = _lastSnapshot.AvgDwellTime > 0 ? _lastSnapshot.AvgDwellTime : _engine.PersonalEmaDt;
                 double avgFt = _lastSnapshot.AvgFlightTime > 0 ? _lastSnapshot.AvgFlightTime : _engine.PersonalEmaFt;
 
-                // 💡 수정 3: 매개변수 4번째 자리에 _lastSnapshot.MaxConsecutiveBackspaces 를 추가합니다!
                 _engine.PerformDeepAnalysis(
                     _lastSnapshot.Kpm,
                     _lastSnapshot.Mpm + _lastSnapshot.ScrollCount,
@@ -160,7 +205,10 @@ namespace Keymon
                     avgFt
                 );
 
+                _engine.IsFirstAnalysisComplete = true;
+
                 UpdateHistory();
+                UpdateDailyStat(isStandby: false);
                 _collector.ResetTimingAccumulators();
                 _tickCounter = 0;
             }
@@ -169,13 +217,52 @@ namespace Keymon
             _unity.SendState(_engine.FocusState);
         }
 
+        private void UpdateDailyStat(bool isStandby = false)
+        {
+            try
+            {
+                string today = DateTime.Now.ToString("yyyy-MM-dd");
+                int hour = DateTime.Now.Hour;
+
+                if (!_dailyStats.ContainsKey(today))
+                    _dailyStats[today] = new DailyStat { DateString = today };
+
+                var stat = _dailyStats[today];
+                stat.StateCounts ??= new int[5];
+                stat.HourlyMinutes ??= new int[24];
+                stat.HourlyActiveMinutes ??= new int[24];
+
+                stat.TotalMinutes++;
+                stat.HourlyMinutes[hour]++;
+
+                if (isStandby)
+                {
+                    stat.StateCounts[0]++;
+                }
+                else
+                {
+                    stat.TotalActiveMinutes++;
+                    stat.TotalFocusSum += _engine.FocusScore;
+                    stat.TotalFatigueSum += (int)_engine.FatigueScore;
+
+                    int stateIdx = Math.Clamp(_engine.FocusState, 0, 4);
+                    stat.StateCounts[stateIdx]++;
+
+                    stat.HourlyFocusSum[hour] += _engine.FocusScore;
+                    stat.HourlyFatigueSum[hour] += (int)_engine.FatigueScore;
+                    stat.HourlyActiveMinutes[hour]++;
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
+        }
+
         private void UpdateHistory()
         {
             _historyScores.Add(_engine.FocusScore);
             _historyStates.Add(_engine.FocusState);
             _historyFatigue.Add((int)_engine.FatigueScore);
 
-            if (_historyScores.Count > 10)
+            if (_historyScores.Count > 60)
             {
                 _historyScores.RemoveAt(0);
                 _historyStates.RemoveAt(0);
@@ -183,8 +270,36 @@ namespace Keymon
             }
         }
 
+        public void RestoreHistory(List<int> scores, List<int> states, List<int> fatigue)
+        {
+            if (scores != null) { _historyScores.Clear(); _historyScores.AddRange(scores); }
+            if (states != null) { _historyStates.Clear(); _historyStates.AddRange(states); }
+            if (fatigue != null) { _historyFatigue.Clear(); _historyFatigue.AddRange(fatigue); }
+        }
+
+        public (List<int> scores, List<int> states, List<int> fatigue) GetHistoryForSave()
+        {
+            return (_historyScores, _historyStates, _historyFatigue);
+        }
+
+        public void RestoreDailyStats(Dictionary<string, DailyStat> stats)
+        {
+            if (stats != null)
+            {
+                _dailyStats.Clear();
+                foreach (var kvp in stats) _dailyStats[kvp.Key] = kvp.Value;
+            }
+        }
+
         private void UpdateTrayTooltip()
         {
+            if (IsManualStandby)
+            {
+                _tray.IsStandby = true;
+                _tray.UpdateTooltip("⏸️ 모니터링 일시 정지 (수동 대기)");
+                return;
+            }
+
             _tray.IsStandby = _engine.IsStandby;
 
             if (_engine.IsStandby)
@@ -204,7 +319,6 @@ namespace Keymon
             _tray.UpdateAnimationByState(_engine.FocusState);
         }
 
-        // ── ISessionData 구현부 (변경 없음) ──────────────────────────────────────
         public bool IsFirstAnalysisComplete => _engine.IsFirstAnalysisComplete;
         public int RemainingSeconds => 60 - _tickCounter;
         public int FocusScore => _engine.FocusScore;
@@ -221,7 +335,6 @@ namespace Keymon
         public string StateReason => _engine.StateReason;
         public List<int> HistoryScores => new List<int>(_historyScores);
         public List<int> HistoryFatigue => new List<int>(_historyFatigue);
-
         public bool IsStandby => _engine.IsStandby;
     }
 }
