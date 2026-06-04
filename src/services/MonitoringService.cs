@@ -188,6 +188,7 @@ namespace Keymon
                 isSafeToDrop
             );
 
+            // ... (이하 60초 주기 PerformDeepAnalysis 관련 기존 코드와 동일)
             if (_tickCounter >= 60)
             {
                 _engine.TotalAccumulatedKeys = _collector.TotalAccumulatedKeys;
@@ -324,6 +325,7 @@ namespace Keymon
         public int FocusScore => _engine.FocusScore;
         public int StressScore => _engine.StressScore;
         public double FatigueScore => _engine.FatigueScore;
+
         public int CurrentKpm => _lastSnapshot.Kpm;
         public int CurrentMpm => _lastSnapshot.Mpm;
         public int CurrentApm => _lastSnapshot.Kpm + _lastSnapshot.Mpm + _lastSnapshot.ScrollCount;

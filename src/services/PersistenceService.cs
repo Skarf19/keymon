@@ -1,24 +1,28 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Keymon
 {
-    // PersistenceService의 역할:
-    //   - 앱 시작 시 userData.json을 읽어 AnalysisEngine과 MetricCollector에 이전 학습값을 복원합니다.
-    //   - 앱 종료 시 현재 학습값을 userData.json에 저장합니다.
     public class PersistenceService
     {
-        private static readonly string FilePath =
-            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "userData.json");
+        private static readonly string FilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "userData.json");
 
-        public void Load(AnalysisEngine engine, MetricCollector collector)
+        public void Load(AnalysisEngine engine, MetricCollector collector, MonitoringService service)
         {
             try
             {
                 if (!File.Exists(FilePath)) return;
 
-                var data = JsonSerializer.Deserialize<UserData>(File.ReadAllText(FilePath));
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                };
+
+                var data = JsonSerializer.Deserialize<UserData>(File.ReadAllText(FilePath), options);
                 if (data == null) return;
 
                 collector.TotalKeyCount = data.KeyCount;
@@ -38,22 +42,42 @@ namespace Keymon
                 engine.PersonalVarMj = data.PersonalVarMj;
                 engine.TotalAccumulatedKeys = data.TotalAccumulatedKeys;
 
-                // 피로도 및 연속 작업 시간 복구
                 engine.FatigueScore = data.FatigueScore;
                 engine.ContinuousWorkMinutes = data.ContinuousWorkMinutes;
-  
+
+                engine.FocusScore = data.FocusScore;
+                engine.FocusState = data.FocusState;
+                if (!string.IsNullOrEmpty(data.StateReason)) engine.StateReason = data.StateReason;
+
+                engine.IsFirstAnalysisComplete = data.IsFirstAnalysisComplete || data.HistoryScores.Count > 0;
+
+                service.RestoreHistory(data.HistoryScores, data.HistoryStates, data.HistoryFatigue);
+
+                if (data.DailyStats != null)
+                {
+                    foreach (var stat in data.DailyStats.Values)
+                    {
+                        stat.HourlyActiveMinutes ??= new int[24];
+                        stat.HourlyFocusSum ??= new int[24];
+                        stat.HourlyFatigueSum ??= new int[24];
+                        stat.HourlyMinutes ??= new int[24];
+                        stat.StateCounts ??= new int[5];
+                    }
+                    service.RestoreDailyStats(data.DailyStats);
+                }
             }
             catch (Exception ex)
             {
-                // 에러 발생 시 프로그램이 뻗지 않고, 원인만 콘솔에 남깁니다.
                 Console.WriteLine($"[데이터 로드 실패] {ex.Message}");
             }
         }
 
-        public void Save(AnalysisEngine engine, MetricCollector collector)
+        public void Save(AnalysisEngine engine, MetricCollector collector, MonitoringService service)
         {
             try
             {
+                var history = service.GetHistoryForSave();
+
                 var data = new UserData
                 {
                     KeyCount = collector.TotalKeyCount,
@@ -70,22 +94,28 @@ namespace Keymon
                     PersonalVarFt = engine.PersonalVarFt,
                     PersonalEmaMj = engine.PersonalEmaMj,
                     PersonalVarMj = engine.PersonalVarMj,
-
-                    // 💡 추가됨: 피로도 및 연속 작업 시간 저장
                     FatigueScore = engine.FatigueScore,
-                    ContinuousWorkMinutes = engine.ContinuousWorkMinutes
+                    ContinuousWorkMinutes = engine.ContinuousWorkMinutes,
+
+                    FocusScore = engine.FocusScore,
+                    FocusState = engine.FocusState,
+                    StateReason = engine.StateReason,
+                    IsFirstAnalysisComplete = engine.IsFirstAnalysisComplete,
+                    HistoryScores = history.scores,
+                    HistoryStates = history.states,
+                    HistoryFatigue = history.fatigue,
+                    DailyStats = service.DailyStats
                 };
 
-                File.WriteAllText(FilePath, JsonSerializer.Serialize(data));
+                var options = new JsonSerializerOptions { WriteIndented = true };
+                File.WriteAllText(FilePath, JsonSerializer.Serialize(data, options));
             }
             catch (Exception ex)
             {
-                // 에러 발생 시 원인을 콘솔에 남겨 디버깅을 돕습니다.
                 Console.WriteLine($"[데이터 저장 실패] {ex.Message}");
             }
         }
 
-        // private: 이 클래스 내부에서만 사용됩니다.
         private class UserData
         {
             public int KeyCount { get; set; }
@@ -104,6 +134,15 @@ namespace Keymon
             public double PersonalVarMj { get; set; }
             public double FatigueScore { get; set; }
             public int ContinuousWorkMinutes { get; set; }
+
+            public int FocusScore { get; set; }
+            public int FocusState { get; set; }
+            public string StateReason { get; set; } = "";
+            public bool IsFirstAnalysisComplete { get; set; }
+            public List<int> HistoryScores { get; set; } = new();
+            public List<int> HistoryStates { get; set; } = new();
+            public List<int> HistoryFatigue { get; set; } = new();
+            public Dictionary<string, DailyStat> DailyStats { get; set; } = new();
         }
     }
 }
