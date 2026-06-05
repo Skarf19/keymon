@@ -113,19 +113,6 @@ namespace Keymon
             });
         }
 
-        public void Reset()
-        {
-            _tickCounter = 0;
-            _totalSessionTicks = 0;
-            _historyScores.Clear();
-            _historyStates.Clear();
-            _historyFatigue.Clear();
-
-            _lastSnapshot = new(0, 0, 0, 0, 0, 0, 0, 0, 0);
-            _collector.Reset();
-            _engine.Reset();
-        }
-
         private void OnTick(object? sender, EventArgs e)
         {
             DateTime now = DateTime.Now;
@@ -133,12 +120,6 @@ namespace Keymon
 
             if (IsManualStandby)
             {
-                _tickCounter++;
-                if (_tickCounter >= 60)
-                {
-                    UpdateDailyStat(isStandby: true);
-                    _tickCounter = 0;
-                }
                 UpdateTrayTooltip();
                 return;
             }
