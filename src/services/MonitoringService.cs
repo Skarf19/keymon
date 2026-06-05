@@ -75,6 +75,7 @@ namespace Keymon
             if (IsManualStandby)
             {
                 _collector.ResetTimingAccumulators();
+                _tickCounter = 0;
             }
             else
             {
@@ -139,7 +140,12 @@ namespace Keymon
 
             if (IsManualStandby)
             {
-                UpdateDailyStat(isStandby: true);
+                _tickCounter++;
+                if (_tickCounter >= 60)
+                {
+                    UpdateDailyStat(isStandby: true);
+                    _tickCounter = 0;
+                }
                 UpdateTrayTooltip();
                 _unity.SendState(0);
                 return;
