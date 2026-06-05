@@ -10,7 +10,6 @@ namespace Keymon
         private MetricCollector? _collector;
         private AnalysisEngine? _engine;
         private MonitoringService? _monitoring;
-        private UnityBridge? _unity;
         private TrayIconManager? _tray;
         private PersistenceService? _persistence;
 
@@ -34,10 +33,10 @@ namespace Keymon
             _hookManager = new InputHookManager();
             _collector = new MetricCollector();
             _persistence = new PersistenceService();
-            _unity = new UnityBridge();
             _tray = new TrayIconManager();
 
-            _monitoring = new MonitoringService(_collector, _engine, _unity, _tray, _persistence);
+            // 💡 유니티 매개변수 제거됨
+            _monitoring = new MonitoringService(_collector, _engine, _tray, _persistence);
 
             _collector.Subscribe(_hookManager);
 
@@ -60,7 +59,6 @@ namespace Keymon
             _tray.Initialize();
 
             _hookManager.Start();
-            _unity.Start();
             _monitoring.Start();
 
             _overlayWindow = new MainWindow(_monitoring!);
@@ -81,7 +79,6 @@ namespace Keymon
             _monitoring?.Stop();
             _hookManager?.Stop();
             _tray?.Dispose();
-            _unity?.Dispose();
 
             _overlayWindow?.Close();
             _dashboardWindow?.Close();

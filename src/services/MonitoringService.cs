@@ -6,15 +6,10 @@ using Microsoft.Win32;
 
 namespace Keymon
 {
-    // MonitoringService의 역할:
-    //   - 1초마다 실행되는 타이머 루프 소유
-    //   - 절전 모드 진입/해제 감지 및 대응
-    //   - PersistenceService를 통한 데이터 Save/Load 트리거
     public class MonitoringService : ISessionData
     {
         private readonly MetricCollector _collector;
         private readonly AnalysisEngine _engine;
-        private readonly UnityBridge _unity;
         private readonly TrayIconManager _tray;
         private readonly PersistenceService _persistence;
 
@@ -33,17 +28,15 @@ namespace Keymon
 
         public bool IsManualStandby { get; private set; } = false;
 
-        public MonitoringService(MetricCollector collector, AnalysisEngine engine, UnityBridge unity, TrayIconManager tray, PersistenceService persistence)
+        public MonitoringService(MetricCollector collector, AnalysisEngine engine, TrayIconManager tray, PersistenceService persistence)
         {
             _collector = collector;
             _engine = engine;
-            _unity = unity;
             _tray = tray;
             _persistence = persistence;
 
             _persistence.Load(_engine, _collector, this);
 
-            // 로드 직후 과거 데이터가 있다면, 시작하자마자 60초를 채운 것으로 간주!
             if (_engine.IsFirstAnalysisComplete || _historyScores.Count > 0)
             {
                 _engine.IsFirstAnalysisComplete = true;
@@ -75,6 +68,7 @@ namespace Keymon
             if (IsManualStandby)
             {
                 _collector.ResetTimingAccumulators();
+                _tickCounter = 0;
             }
             else
             {
@@ -139,21 +133,22 @@ namespace Keymon
 
             if (IsManualStandby)
             {
-                UpdateDailyStat(isStandby: true);
+                _tickCounter++;
+                if (_tickCounter >= 60)
+                {
+                    UpdateDailyStat(isStandby: true);
+                    _tickCounter = 0;
+                }
                 UpdateTrayTooltip();
-                _unity.SendState(0);
                 return;
             }
 
             _lastSnapshot = _collector.GetSnapshot();
             int currentApm = _lastSnapshot.Kpm + _lastSnapshot.Mpm + _lastSnapshot.ScrollCount;
 
-            // 앱이 켜진 후 흐른 총 시간(초)
             _totalSessionTicks++;
-
             bool isWarmUpPeriod = _totalSessionTicks <= 300;
 
-            // 5분이 지나기 전까지는 엔진이 '대기(Standby)'라고 판정해도 무시하고 예전 상태를 유지합니다.
             if (_engine.IsStandby && !isWarmUpPeriod)
             {
                 if (currentApm > 0)
@@ -171,14 +166,11 @@ namespace Keymon
                         _tickCounter = 0;
                     }
                     UpdateTrayTooltip();
-                    _unity.SendState(_engine.FocusState);
                     return;
                 }
             }
 
             _tickCounter++;
-
-            // 실시간 상태 하락(Drop) 역시 5분(300틱) 동안은 절대 발생하지 않도록 방어합니다.
             bool isSafeToDrop = _engine.IsFirstAnalysisComplete && !isWarmUpPeriod;
 
             _engine.UpdateRealtimeStatus(
@@ -188,7 +180,6 @@ namespace Keymon
                 isSafeToDrop
             );
 
-            // ... (이하 60초 주기 PerformDeepAnalysis 관련 기존 코드와 동일)
             if (_tickCounter >= 60)
             {
                 _engine.TotalAccumulatedKeys = _collector.TotalAccumulatedKeys;
@@ -215,7 +206,6 @@ namespace Keymon
             }
 
             UpdateTrayTooltip();
-            _unity.SendState(_engine.FocusState);
         }
 
         private void UpdateDailyStat(bool isStandby = false)
@@ -325,7 +315,6 @@ namespace Keymon
         public int FocusScore => _engine.FocusScore;
         public int StressScore => _engine.StressScore;
         public double FatigueScore => _engine.FatigueScore;
-
         public int CurrentKpm => _lastSnapshot.Kpm;
         public int CurrentMpm => _lastSnapshot.Mpm;
         public int CurrentApm => _lastSnapshot.Kpm + _lastSnapshot.Mpm + _lastSnapshot.ScrollCount;

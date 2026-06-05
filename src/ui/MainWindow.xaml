@@ -10,7 +10,16 @@
         Topmost="True" ShowInTaskbar="False"
         Loaded="Window_Loaded"
         MouseLeftButtonDown="Window_MouseLeftButtonDown">
+
     <Grid>
-        <Image x:Name="AnimImage" Width="150" Height="150" Stretch="Uniform"/>
+        <Image x:Name="AnimImage" Width="140" Height="140" Stretch="Uniform" Margin="5">
+            <Image.OpacityMask>
+                <RadialGradientBrush>
+                    <GradientStop Color="Black" Offset="0.5"/>
+                    <GradientStop Color="Transparent" Offset="1.0"/>
+                </RadialGradientBrush>
+            </Image.OpacityMask>
+        </Image>
     </Grid>
+
 </Window>
