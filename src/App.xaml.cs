@@ -41,7 +41,6 @@ namespace Keymon
             _collector.Subscribe(_hookManager);
 
             _tray.OnShowDashboard = ShowDashboard;
-            _tray.OnResetData = () => _monitoring.Reset();
             _tray.OnExit = () => Current.Shutdown();
 
             _tray.OnToggleOverlay = (isVisible) =>
