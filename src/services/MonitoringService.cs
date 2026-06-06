@@ -27,6 +27,10 @@ namespace Keymon
         private MetricSnapshot _lastSnapshot = new(0, 0, 0, 0, 0, 0, 0, 0, 0);
 
         public bool IsManualStandby { get; private set; } = false;
+        public bool IsFastMode { get; private set; } = false;
+
+        public double? OverlayLeft { get; private set; }
+        public double? OverlayTop { get; private set; }
 
         public MonitoringService(MetricCollector collector, AnalysisEngine engine, TrayIconManager tray, PersistenceService persistence)
         {
@@ -40,7 +44,7 @@ namespace Keymon
             if (_engine.IsFirstAnalysisComplete || _historyScores.Count > 0)
             {
                 _engine.IsFirstAnalysisComplete = true;
-                _tickCounter = 60;
+                _tickCounter = IsFastMode ? 10 : 60;
             }
         }
 
@@ -75,6 +79,18 @@ namespace Keymon
                 _engine.WakeUp();
                 _tickCounter = 0;
             }
+        }
+
+        public void ToggleFastMode()
+        {
+            IsFastMode = !IsFastMode;
+            _tickCounter = 0;
+        }
+
+        public void UpdateOverlayPosition(double left, double top)
+        {
+            OverlayLeft = left;
+            OverlayTop = top;
         }
 
         private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
@@ -130,6 +146,8 @@ namespace Keymon
             _totalSessionTicks++;
             bool isWarmUpPeriod = _totalSessionTicks <= 300;
 
+            int targetInterval = IsFastMode ? 10 : 60;
+
             if (_engine.IsStandby && !isWarmUpPeriod)
             {
                 if (currentApm > 0)
@@ -141,7 +159,7 @@ namespace Keymon
                 else
                 {
                     _tickCounter++;
-                    if (_tickCounter >= 60)
+                    if (_tickCounter >= targetInterval)
                     {
                         UpdateDailyStat(isStandby: true);
                         _tickCounter = 0;
@@ -161,7 +179,7 @@ namespace Keymon
                 isSafeToDrop
             );
 
-            if (_tickCounter >= 60)
+            if (_tickCounter >= targetInterval)
             {
                 _engine.TotalAccumulatedKeys = _collector.TotalAccumulatedKeys;
                 double avgDt = _lastSnapshot.AvgDwellTime > 0 ? _lastSnapshot.AvgDwellTime : _engine.PersonalEmaDt;
@@ -282,7 +300,8 @@ namespace Keymon
 
             if (!_engine.IsFirstAnalysisComplete)
             {
-                _tray.UpdateTooltip($"패턴 분석 중... ({60 - _tickCounter}초)");
+                int targetInterval = IsFastMode ? 10 : 60;
+                _tray.UpdateTooltip($"패턴 분석 중... ({targetInterval - _tickCounter}초)");
                 return;
             }
             string[] stateNames = { "Idle", "Distracted", "Engaged", "Focused", "Deep Focus" };
@@ -292,7 +311,7 @@ namespace Keymon
         }
 
         public bool IsFirstAnalysisComplete => _engine.IsFirstAnalysisComplete;
-        public int RemainingSeconds => 60 - _tickCounter;
+        public int RemainingSeconds => (IsFastMode ? 10 : 60) - _tickCounter;
         public int FocusScore => _engine.FocusScore;
         public int StressScore => _engine.StressScore;
         public double FatigueScore => _engine.FatigueScore;

@@ -35,6 +35,11 @@ namespace Keymon
         {
             try
             {
+                if (FindName("BtnFastMode") is System.Windows.Controls.Primitives.ToggleButton fastBtn)
+                {
+                    fastBtn.IsChecked = _session.IsFastMode;
+                }
+
                 if (_session.IsManualStandby)
                 {
                     if (FindName("BtnManualStandby") is System.Windows.Controls.Primitives.ToggleButton btn)
@@ -48,7 +53,12 @@ namespace Keymon
 
                     TxtKpm.Text = "-"; TxtMpm.Text = "-"; TxtApm.Text = "-";
                     TxtFocus.Text = "- %"; TxtEr.Text = "- 회"; TxtCsr.Text = "- 번"; TxtJerk.Text = "- 회"; TxtFatigue.Text = "- 점";
-                    BarUpdate.Value = 0; TxtUpdateSec.Text = "중지";
+
+                    if (FindName("BarUpdate") is ProgressBar bar)
+                    {
+                        bar.Value = 0;
+                    }
+                    TxtUpdateSec.Text = "중지";
 
                     return;
                 }
@@ -72,7 +82,12 @@ namespace Keymon
                 else TxtFatigue.Foreground = new SolidColorBrush(Colors.MediumSeaGreen);
 
                 TxtReason.Text = _session.StateReason;
-                BarUpdate.Value = _session.RemainingSeconds;
+
+                if (FindName("BarUpdate") is ProgressBar barUpdate)
+                {
+                    barUpdate.Maximum = _session.IsFastMode ? 10 : 60;
+                    barUpdate.Value = _session.RemainingSeconds;
+                }
                 TxtUpdateSec.Text = $"{_session.RemainingSeconds}초";
 
                 if (_selectedDateString == DateTime.Now.ToString("yyyy-MM-dd"))
@@ -341,6 +356,15 @@ namespace Keymon
             if (_session is MonitoringService service)
             {
                 service.ToggleManualStandby();
+                UpdateRealTimeTab(null, EventArgs.Empty);
+            }
+        }
+
+        private void BtnFastMode_Click(object sender, RoutedEventArgs e)
+        {
+            if (_session is MonitoringService service)
+            {
+                service.ToggleFastMode();
                 UpdateRealTimeTab(null, EventArgs.Empty);
             }
         }

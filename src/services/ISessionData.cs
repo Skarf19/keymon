@@ -67,6 +67,14 @@ namespace Keymon
 
         bool IsManualStandby { get; }
 
+        bool IsFastMode { get; }
+
         Dictionary<string, DailyStat> DailyStats { get; }
+
+        double? OverlayLeft { get; }
+
+        double? OverlayTop { get; }
+
+        void UpdateOverlayPosition(double left, double top);
     }
 }
