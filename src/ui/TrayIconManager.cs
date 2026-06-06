@@ -24,7 +24,7 @@ namespace Keymon
         private int _transitionDelayCounter = 0;
 
         public Action? OnShowDashboard;
-        public Action? OnResetData;
+        // 💡 삭제됨: public Action? OnResetData; 
         public Action? OnExit;
         public Action<bool>? OnToggleOverlay;
 
@@ -188,9 +188,7 @@ namespace Keymon
             autoStartItem.Click += (s, e) => ToggleAutoStart(autoStartItem);
             menu.Items.Add(autoStartItem);
 
-            var resetItem = new MenuItem { Header = "데이터 초기화" };
-            resetItem.Click += (s, e) => OnResetData?.Invoke();
-            menu.Items.Add(resetItem);
+            // 💡 삭제됨: 데이터 초기화 (resetItem) 메뉴 제거
 
             var exitItem = new MenuItem { Header = "종료" };
             exitItem.Click += (s, e) => OnExit?.Invoke();

@@ -65,6 +65,11 @@ namespace Keymon
                     }
                     service.RestoreDailyStats(data.DailyStats);
                 }
+
+                if (data.OverlayLeft.HasValue && data.OverlayTop.HasValue)
+                {
+                    service.UpdateOverlayPosition(data.OverlayLeft.Value, data.OverlayTop.Value);
+                }
             }
             catch (Exception ex)
             {
@@ -104,7 +109,10 @@ namespace Keymon
                     HistoryScores = history.scores,
                     HistoryStates = history.states,
                     HistoryFatigue = history.fatigue,
-                    DailyStats = service.DailyStats
+                    DailyStats = service.DailyStats,
+
+                    OverlayLeft = service.OverlayLeft,
+                    OverlayTop = service.OverlayTop
                 };
 
                 var options = new JsonSerializerOptions { WriteIndented = true };
@@ -143,6 +151,9 @@ namespace Keymon
             public List<int> HistoryStates { get; set; } = new();
             public List<int> HistoryFatigue { get; set; } = new();
             public Dictionary<string, DailyStat> DailyStats { get; set; } = new();
+
+            public double? OverlayLeft { get; set; }
+            public double? OverlayTop { get; set; }
         }
     }
 }

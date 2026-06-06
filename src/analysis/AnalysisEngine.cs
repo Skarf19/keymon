@@ -73,28 +73,6 @@ namespace Keymon
 
         public event Action<MinuteStat>? OnMinuteAnalyzed;
 
-        // ---------------------------------------------------------
-        // 4. 데이터 초기화
-        // ---------------------------------------------------------
-        public void Reset()
-        {
-            PersonalEmaKpm = 0; PersonalEmaEr = 0; PersonalEmaDt = 0;
-            PersonalEmaFt = 0; PersonalEmaMj = 0;
-            PersonalVarKpm = 0; PersonalVarEr = 0; PersonalVarDt = 0;
-            PersonalVarFt = 0; PersonalVarMj = 0;
-            TotalAccumulatedKeys = 0;
-            ContinuousWorkMinutes = 0;
-            _deepFocusStreak = 0;
-            _distractionStreak = 0;
-            FocusScore = 0; StressScore = 0; FatigueScore = 0;
-            FocusState = 0;
-            FatigueState = 1; // 피로도 기본 상태는 1(안전)
-            StateReason = "데이터 분석 중...";
-            IsFirstAnalysisComplete = false;
-            IsStandby = false;
-            _idleMinutes = 0;
-        }
-
         public void WakeUp()
         {
             IsStandby = false;

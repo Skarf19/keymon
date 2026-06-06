@@ -128,34 +128,7 @@ namespace Keymon
             _maxConsecutiveBackspaces = 0;
             _currentConsecutiveBackspaces = 0;
         }
-
-        // 사용자가 트레이에서 '데이터 초기화'를 선택했을 때 호출됩니다.
-        // 모든 수집 데이터와 누적값을 초기 상태로 되돌립니다.
-        public void Reset()
-        {
-            TotalAccumulatedKeys = 0;
-            TotalKeyCount = 0;
-            TotalMouseCount = 0;
-            TotalScrollCount = 0;
-            TotalBackspaceCount = 0;
-            _lastKeyReleaseTime = DateTime.MinValue;
-            _lastWindowHandle = IntPtr.Zero;
-            _pressedKeys.Clear();
-
-            // lock: 여러 스레드가 동시에 같은 자원에 접근하는 것을 막습니다.
-            // SharpHook은 백그라운드 스레드에서 이벤트를 발생시키므로,
-            // Reset 중에 이벤트가 들어오면 데이터가 꼬일 수 있어 lock이 필요합니다.
-            lock (_keyTimes) { _keyTimes.Clear(); }
-            lock (_mouseTimes) { _mouseTimes.Clear(); }
-            lock (_backspaceTimes) { _backspaceTimes.Clear(); }
-            lock (_contextSwitchTimes) { _contextSwitchTimes.Clear(); }
-            lock (_jerkTimes) { _jerkTimes.Clear(); }
-            lock (_scrollTimes) { _scrollTimes.Clear(); }
-            _mouseTurnTimes.Clear();
-
-            ResetTimingAccumulators();
-        }
-
+  
         // SharpHook 백그라운드 스레드에서 호출됩니다 (키가 눌릴 때마다).
         private void OnKeyPressed(object? sender, KeyboardHookEventArgs e)
         {

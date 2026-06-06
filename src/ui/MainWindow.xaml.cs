@@ -133,9 +133,17 @@ namespace Keymon
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            var workingArea = SystemParameters.WorkArea;
-            this.Left = workingArea.Right - this.Width - 20;
-            this.Top = workingArea.Bottom - this.Height - 20;
+            if (_session.OverlayLeft.HasValue && _session.OverlayTop.HasValue)
+            {
+                this.Left = _session.OverlayLeft.Value;
+                this.Top = _session.OverlayTop.Value;
+            }
+            else
+            {
+                var workingArea = SystemParameters.WorkArea;
+                this.Left = workingArea.Right - this.Width - 20;
+                this.Top = workingArea.Bottom - this.Height - 20;
+            }
         }
 
         private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -143,6 +151,7 @@ namespace Keymon
             if (e.ChangedButton == MouseButton.Left)
             {
                 this.DragMove();
+                _session.UpdateOverlayPosition(this.Left, this.Top);
             }
         }
     }
