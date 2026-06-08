@@ -4,19 +4,7 @@ KEYMON is a Windows desktop background app that watches your typing and activity
 
 ## Download The App
 
-Normal users should download KEYMON from the repository's Releases page or from the shared Google Drive installer.
-
-### Installer Option
-
-1. Download `KEYMON-Setup.exe`.
-2. Double-click `KEYMON-Setup.exe`.
-3. If Windows SmartScreen appears, click **More info**, then **Run anyway**.
-4. KEYMON will be installed to your user app folder.
-5. A KEYMON shortcut will appear on the Desktop and in the Start Menu.
-
-Windows may show a warning because the installer is not code-signed yet. This is common for new apps shared directly through Google Drive.
-
-### Release Zip Option
+Normal users should download KEYMON from the repository's **Releases** page.
 
 1. Open the GitHub repository.
 2. Click **Releases** on the right side of the repository page.
@@ -24,18 +12,18 @@ Windows may show a warning because the installer is not code-signed yet. This is
 4. Extract the zip file.
 5. Double-click `KEYMON.exe`.
 
-You do not need Visual Studio, the .NET SDK, or `dotnet run` when using the installer or release zip.
+You do not need Visual Studio, the .NET SDK, or `dotnet run` when using the release zip.
 
 ## Important: Do Not Use Code Download ZIP
 
-Use **Releases** or the shared installer, not **Code -> Download ZIP**.
+Use **Releases**, not **Code -> Download ZIP**.
 
-The Code ZIP contains the source code only. It is for developers and does not include the packaged Windows runtime files needed by normal users. The installer and release zip contain `KEYMON.exe`, required runtime files, libraries, and app assets.
+The Code ZIP contains the source code only. It is for developers and does not include the packaged Windows runtime files needed by normal users. The release zip contains `KEYMON.exe`, required runtime files, libraries, and app assets.
 
 ## What You Will See
 
 - A pixel cat overlay appears on screen.
-- A KEYMON icon, based on `Assets/Anim1/5.png`, appears in the Windows taskbar tray and desktop shortcut.
+- A KEYMON icon appears in the Windows taskbar tray.
 - Right-click the tray icon to open the dashboard, pause monitoring, toggle the overlay, enable startup, or exit.
 - If KEYMON is already running, opening `KEYMON.exe` again will not start a second copy.
 
@@ -76,7 +64,7 @@ dotnet publish src/Keymon.Core.csproj -c Release -r win-x64 --self-contained tru
 Compress-Archive -Path release/KEYMON-windows-x64/* -DestinationPath release/KEYMON-windows-x64.zip -Force
 ```
 
-Upload `release/KEYMON-windows-x64.zip` or `release/KEYMON-Setup.exe` to the release/download location.
+Upload `release/KEYMON-windows-x64.zip` to a GitHub Release.
 
 ## Team Rules
 
