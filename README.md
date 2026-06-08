@@ -1,6 +1,6 @@
 # KEYMON
 
-A background app that watches how you type and shows your focus level through a pixel cat in the taskbar.
+A background app that watches how you type and shows your focus level through a pixel Keymon in the taskbar.
 
 ---
 
@@ -35,12 +35,12 @@ The first time you run it, it downloads some packages automatically.
 
 ## What You'll See
 
-- **A pixel cat window** pops up — this is the character that reacts to your focus
+- **A pixel Keymon window** pops up — this is the character that reacts to your focus
 - **A small icon in the bottom-right taskbar** — that's the app running in the background
 
 **Right-click the taskbar icon** to open the dashboard or close the app.
 
-The cat does not react to the typing but moving.
+Keymon does not react to the typing but moving.
 
 ---
 
@@ -49,7 +49,7 @@ The cat does not react to the typing but moving.
 1. The app runs in the background and watches your typing rhythm
 2. Every minute it figures out your focus level
 3. There are 5 states: `Idle → Distracted → Engaged → Focused → Deep Focus`
-4. The cat's animation changes to match your state (not working)
+4. Keymon's animation changes to match your state (not working)
 5. The dashboard shows your stats in real time
 
 ---
