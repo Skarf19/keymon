@@ -1,31 +1,50 @@
 # KEYMON
 
-KEYMON is a Windows desktop background app that watches your typing and activity rhythm locally, then shows your focus level through a pixel cat overlay and taskbar tray icon.
+KEYMON is a Windows desktop app that monitors your local typing and activity rhythm, then shows your focus level with a pixel cat overlay and taskbar tray icon.
 
-## Download The App
+## Use The App
 
-Normal users should download KEYMON from the repository's **Releases** page.
+For normal use, download and run the installer:
 
-1. Open the GitHub repository.
-2. Click **Releases** on the right side of the repository page.
-3. Download the latest `KEYMON-windows-x64.zip` file.
-4. Extract the zip file.
-5. Double-click `KEYMON.exe`.
+```text
+release/KEYMON-Setup.exe
+```
 
-You do not need Visual Studio, the .NET SDK, or `dotnet run` when using the release zip.
+If you are on this computer, the setup file is here:
 
-## Important: Do Not Use Code Download ZIP
+```text
+C:\Users\user\Desktop\Manage\keymon-develop\release\KEYMON-Setup.exe
+```
 
-Use **Releases**, not **Code -> Download ZIP**.
+To share the app through Google Drive, upload this file:
 
-The Code ZIP contains the source code only. It is for developers and does not include the packaged Windows runtime files needed by normal users. The release zip contains `KEYMON.exe`, required runtime files, libraries, and app assets.
+```text
+C:\Users\user\Downloads\KEYMON-GoogleDrive-Upload\KEYMON-Setup.exe
+```
+
+## Install
+
+1. Download `KEYMON-Setup.exe`.
+2. Double-click `KEYMON-Setup.exe`.
+3. If Windows SmartScreen appears, click **More info**, then **Run anyway**.
+4. KEYMON installs to your user app folder.
+5. A KEYMON shortcut appears on your Desktop and in the Start Menu.
+6. Open KEYMON from the Desktop shortcut.
+
+Windows may show a warning because this installer is not code-signed yet. This is common for new apps shared directly through Google Drive.
+
+## Do Not Use Code Download ZIP
+
+Do not use **Code -> Download ZIP** for normal installation. That download contains source code, not the ready-to-run installer.
+
+Use `KEYMON-Setup.exe` instead.
 
 ## What You Will See
 
 - A pixel cat overlay appears on screen.
 - A KEYMON icon appears in the Windows taskbar tray.
 - Right-click the tray icon to open the dashboard, pause monitoring, toggle the overlay, enable startup, or exit.
-- If KEYMON is already running, opening `KEYMON.exe` again will not start a second copy.
+- If KEYMON is already running, opening it again will not start a second copy.
 
 ## Privacy
 
@@ -35,36 +54,24 @@ KEYMON uses local rhythm-based metrics such as input timing, activity counts, wi
 
 Developers can build KEYMON from source with the .NET 10 SDK.
 
-1. Install the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
-2. Clone the repository.
-3. Build the solution:
-
 ```powershell
 dotnet build keymon.sln
-```
-
-4. Run tests:
-
-```powershell
 dotnet test keymon.sln
-```
-
-5. Run from source:
-
-```powershell
 dotnet run --project src/Keymon.Core.csproj
 ```
 
-## Create A Release Package
-
-To create a self-contained Windows x64 package:
+## Create A Release Zip
 
 ```powershell
 dotnet publish src/Keymon.Core.csproj -c Release -r win-x64 --self-contained true -o release/KEYMON-windows-x64 /p:DebugType=None /p:DebugSymbols=false
 Compress-Archive -Path release/KEYMON-windows-x64/* -DestinationPath release/KEYMON-windows-x64.zip -Force
 ```
 
-Upload `release/KEYMON-windows-x64.zip` to a GitHub Release.
+The current setup installer is stored at:
+
+```text
+release/KEYMON-Setup.exe
+```
 
 ## Team Rules
 
