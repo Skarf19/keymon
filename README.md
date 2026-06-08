@@ -23,16 +23,11 @@ You should see a number starting with `10.`
 
 ```bash
 # Step 1 — go into the project folder
-cd keymon
+cd keymon/src
 
 # Step 2 — run it
 dotnet run --project src/Keymon.Core.csproj
 
-or
-
-cd src
-donet run
-```
 
 The first time you run it, it downloads some packages automatically. 
 
