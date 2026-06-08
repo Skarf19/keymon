@@ -26,7 +26,12 @@ You should see a number starting with `10.`
 cd keymon
 
 # Step 2 — run it
-dotnet run --project src/core/Keymon.Core.csproj
+dotnet run --project src/Keymon.Core.csproj
+
+or
+
+cd src
+donet run
 ```
 
 The first time you run it, it downloads some packages automatically. 

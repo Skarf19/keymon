@@ -1,0 +1,6 @@
+.vs/
+/bin
+/obj
+*.log
+/src/bin/Debug/net10.0-windows
+/src/obj
